@@ -1132,7 +1132,7 @@ body::before {
 
 <!-- ── Navigation ── -->
 <nav class="nav">
-  <div class="nav-title" id="navTitle" data-version="Build v2 · 2026-03-02">⚡ TOURNAMENT</div>
+  <div class="nav-title" id="navTitle" data-version="Build v3 · 2026-03-03">⚡ TOURNAMENT</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-screen="import">Players</button>
     <button class="nav-tab" data-screen="bracket">Round</button>
@@ -1434,8 +1434,8 @@ body::before {
         <select class="dance-select" id="dsCfgTheme">
           <option value="blue">Cosmic Blue</option>
           <option value="fire">Fire Storm</option>
-          <option value="gold" selected>Gold Rush</option>
-          <option value="matrix">Matrix</option>
+          <option value="gold">Gold Rush</option>
+          <option value="matrix" selected>Matrix</option>
         </select>
       </div>
 
@@ -1449,28 +1449,28 @@ body::before {
       </div>
 
       <div class="dance-row">
-        <div class="dance-row-top"><label>Particles</label><span class="dance-row-val" id="dsVParticles">120</span></div>
-        <input type="range" class="dance-range" id="dsCfgParticles" min="40" max="300" value="120">
+        <div class="dance-row-top"><label>Particles</label><span class="dance-row-val" id="dsVParticles">300</span></div>
+        <input type="range" class="dance-range" id="dsCfgParticles" min="40" max="300" value="300">
       </div>
 
       <div class="dance-row">
-        <div class="dance-row-top"><label>Speed</label><span class="dance-row-val" id="dsVSpeed">1.0×</span></div>
-        <input type="range" class="dance-range" id="dsCfgSpeed" min="5" max="30" value="10">
+        <div class="dance-row-top"><label>Speed</label><span class="dance-row-val" id="dsVSpeed">1.5×</span></div>
+        <input type="range" class="dance-range" id="dsCfgSpeed" min="5" max="30" value="15">
       </div>
 
       <div class="dance-row">
-        <div class="dance-row-top"><label>① Cannon</label><span class="dance-row-val" id="dsVCannon">2.0s</span></div>
-        <input type="range" class="dance-range" id="dsCfgCannon" min="0.5" max="6" step="0.5" value="2">
+        <div class="dance-row-top"><label>① Cannon</label><span class="dance-row-val" id="dsVCannon">4.5s</span></div>
+        <input type="range" class="dance-range" id="dsCfgCannon" min="0.5" max="6" step="0.5" value="4.5">
       </div>
 
       <div class="dance-row">
-        <div class="dance-row-top"><label>② Vortex</label><span class="dance-row-val" id="dsVVortex">5.0s</span></div>
-        <input type="range" class="dance-range" id="dsCfgVortex" min="1" max="12" step="0.5" value="5">
+        <div class="dance-row-top"><label>② Vortex</label><span class="dance-row-val" id="dsVVortex">3.0s</span></div>
+        <input type="range" class="dance-range" id="dsCfgVortex" min="1" max="12" step="0.5" value="3">
       </div>
 
       <div class="dance-row">
-        <div class="dance-row-top"><label>③ Collapse</label><span class="dance-row-val" id="dsVCollapse">2.0s</span></div>
-        <input type="range" class="dance-range" id="dsCfgCollapse" min="0.5" max="6" step="0.5" value="2">
+        <div class="dance-row-top"><label>③ Collapse</label><span class="dance-row-val" id="dsVCollapse">3.0s</span></div>
+        <input type="range" class="dance-range" id="dsCfgCollapse" min="0.5" max="6" step="0.5" value="3">
       </div>
 
       <div class="dance-row">
@@ -1479,8 +1479,8 @@ body::before {
       </div>
 
       <div class="dance-row">
-        <div class="dance-row-top"><label>⑤ Shockwave</label><span class="dance-row-val" id="dsVShockwave">0.6s</span></div>
-        <input type="range" class="dance-range" id="dsCfgShockwave" min="0.2" max="3" step="0.1" value="0.6">
+        <div class="dance-row-top"><label>⑤ Shockwave</label><span class="dance-row-val" id="dsVShockwave">0.2s</span></div>
+        <input type="range" class="dance-range" id="dsCfgShockwave" min="0.2" max="3" step="0.1" value="0.2">
       </div>
 
       <div class="dance-row">
@@ -2289,17 +2289,17 @@ var DANCE = (function() {
     function r(id, def) { var el=document.getElementById(id); return el ? parseFloat(el.value) : def; }
     function s(id, def) { var el=document.getElementById(id); return el ? el.value : def; }
     return {
-      particleCount: r('dsCfgParticles', 120),
-      speed:         r('dsCfgSpeed', 10) / 10,
+      particleCount: r('dsCfgParticles', 300),
+      speed:         r('dsCfgSpeed', 15) / 10,
       emitters:      4,
       reveal:        s('dsCfgReveal', 'grid'),
-      theme:         s('dsCfgTheme', 'gold'),
+      theme:         s('dsCfgTheme', 'matrix'),
       dur: {
-        cannon:    r('dsCfgCannon',    2.0),
-        vortex:    r('dsCfgVortex',    5.0),
-        collapse:  r('dsCfgCollapse',  2.0),
+        cannon:    r('dsCfgCannon',    4.5),
+        vortex:    r('dsCfgVortex',    3.0),
+        collapse:  r('dsCfgCollapse',  3.0),
         dance:     r('dsCfgDance',     8.0),
-        shockwave: r('dsCfgShockwave', 0.6),
+        shockwave: r('dsCfgShockwave', 0.2),
         reveal:    r('dsCfgReveal2',   3.0),
         flash:     0.08,
       }
@@ -2361,10 +2361,10 @@ var DANCE = (function() {
                   '#ffffff','#ffffa0','#ffd0ff'];
       var color = cols[Math.floor(Math.random()*cols.length)];
       var p = new Particle(ox, oy,
-        Math.cos(launch)*spd*120,
-        Math.sin(launch)*spd*120,
+        Math.cos(launch)*spd*220,
+        Math.sin(launch)*spd*220,
         color, 2+Math.random()*3);
-      p.life = 0.6+Math.random()*1.2;
+      p.life = 0.8+Math.random()*1.6;
       particles.push(p);
     }
   }
@@ -2410,7 +2410,7 @@ var DANCE = (function() {
     for (var e=0;e<emitters.length;e++) {
       var ex=emitters[e][0], ey=emitters[e][1];
       var angleToCentre = Math.atan2(H/2-ey, W/2-ex) * 180/Math.PI;
-      spawnParticle(ex, ey, angleToCentre, 35, count);
+      spawnParticle(ex, ey, angleToCentre, 55, count);
     }
     if (phaseT>=dur) nextPhase();
   }
@@ -4486,16 +4486,12 @@ document.getElementById('fileLoadData').addEventListener('change', function() {
   try { this.value = null; } catch(ex) {}
 });
 
-// BUILD v2 (ome-image-tournament-animation) — 2026-03-02
-// Added photo tagging during face-off: ⭐ Favourite and 🗑 Delete buttons below
-// each Win button. Delete auto-forfeits the match. Tags show as badges on player
-// grid cards. New 📋 Review tab with two galleries (Favourites / Delete Pile),
-// ✕ untag per card, and three export options: 📤 Copy to clipboard (Favourites),
-// 📤 Copy to clipboard (Delete), 💾 Download .txt (both lists combined).
-// Platform-aware hint: Apple devices see full Shortcuts setup guide (iPhone/iPad/Mac);
-// Android and Windows see .txt download instructions. Tags included in save/load JSON.
-// Nav scrollable horizontally on portrait mobile (overflow-x: auto on .nav-tabs).
-// Dance ceremony fires only once per image set; resets on Clear / New Tournament / new load.
+// BUILD v3 (ome-image-tournament-animation) — 2026-03-03
+// Cannon phase: increased particle speed (120→220) and spread (35°→55°) so
+// particles reach and cross the canvas centre. Extended particle life (0.6–1.8→0.8–2.4s).
+// Dance Ceremony defaults updated to match tuned config: Matrix theme, 300 particles,
+// 1.5× speed, Cannon 4.5s, Vortex 3.0s, Collapse 3.0s, Dance 8.0s, Shockwave 0.2s, Reveal 3.0s.
+// JS cfg() fallback defaults updated to match HTML slider defaults.
 
 // Resize dance canvas if active
 window.addEventListener('resize', function() {
