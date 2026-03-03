@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Image Face-Off</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --gold: #f5c842;
+    --gold2: #ffaa00;
+    --bg: #0c0c14;
+    --surface: #13131f;
+    --surface2: #1a1a2e;
+    --border: #2a2a45;
+    --text: #e8e8f0;
+    --muted: #6a6a8a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(245,200,66,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(245,200,66,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 900px;
+    padding: 20px 16px 200px;  /* generous bottom padding — iOS needs room to scroll to shape selector */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header { text-align: center; margin-bottom: 28px; width: 100%; }
+  header .eyebrow {
+    font-size: 0.7em; letter-spacing: 0.25em;
+    text-transform: uppercase; color: var(--gold); margin-bottom: 6px;
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.4em, 7vw, 4em);
+    letter-spacing: 0.04em; color: #fff; line-height: 1;
+  }
+  header h1 span { color: var(--gold); }
+
+  /* ════════════════════════════════════════════════════════
+     iOS FILE INPUT — THE DEFINITIVE PROVEN PATTERN
+     
+     Research conclusion (stackoverflow, webkit bugzilla, MDN):
+     
+     ✅ DO:  position:absolute inset:0 opacity:0 inside the label
+             The input physically occupies the label's space.
+             opacity:0 is the ONLY hiding method iOS respects.
+             The input IS the tap target — no JS proxying needed.
+     
+     ❌ DON'T: left:-9999px  (off-screen = treated as inert by iOS)
+     ❌ DON'T: display:none  (invisible to iOS event system)
+     ❌ DON'T: visibility:hidden  (same problem)
+     ❌ DON'T: width:1px height:1px  (too small, iOS won't target)
+     ❌ DON'T: JS .click() proxy  (blocked outside direct gesture)
+     ❌ DON'T: this.value=''  (use null to reset on Safari)
+  ════════════════════════════════════════════════════════ */
+
+  .upload-section {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  /* The label is the styled tap zone */
+  .drop-zone {
+    position: relative;
+    display: block;
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--surface);
+    overflow: visible;           /* iOS: overflow:hidden clips absolute input touch targets */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(245,200,66,0.09) 0%, transparent 70%);
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .drop-zone:hover::before, .drop-zone.has-image::before { opacity: 1; }
+  .drop-zone:hover  { border-color: var(--gold); transform: translateY(-2px); }
+  .drop-zone.has-image { border-color: var(--gold); border-style: solid; }
+
+  /*
+    THE KEY FIX:
+    Input sits over the entire label area. opacity:0 hides it visually
+    but it remains fully interactive — iOS can see it, tap it, fire change.
+    z-index:10 ensures it receives touches above all label child elements.
+  */
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 10;
+    /* Prevent iOS from zooming on focus */
+    font-size: 16px;
+  }
+
+  .dz-icon  { font-size: 2em; margin-bottom: 8px; display: block; pointer-events: none; }
+  .dz-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1em; letter-spacing: 0.1em; color: #fff; margin-bottom: 4px;
+    pointer-events: none;
+  }
+  .drop-zone.has-image .dz-badge { color: var(--gold); }
+  .dz-sub   { font-size: 0.75em; color: var(--muted); font-weight: 500;
+              letter-spacing: 0.05em; text-transform: uppercase; pointer-events: none; }
+  .dz-name  { font-size: 0.72em; color: var(--gold); margin-top: 6px; font-weight: 600;
+              word-break: break-all; min-height: 1.1em; pointer-events: none; }
+  /* Thumbnail preview inside the drop zone */
+  .dz-thumb {
+    display: none;
+    width: 100%; max-height: 80px;
+    object-fit: cover; border-radius: 8px;
+    margin-top: 10px; pointer-events: none;
+  }
+  .drop-zone.has-image .dz-thumb { display: block; }
+
+  /* ── ARENA ── */
+  .arena-wrapper {
+    width: 100%; border-radius: 20px; overflow: hidden;
+    position: relative; background: var(--surface);
+    border: 1px solid var(--border); display: none;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+  }
+  .arena-wrapper.visible { display: block; }
+
+  .arena {
+    position: relative; width: 100%; aspect-ratio: 16/9;
+    overflow: hidden; cursor: col-resize;
+    user-select: none; touch-action: none; background: #111;
+  }
+
+  .arena img {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover; display: block;
+    pointer-events: none; user-select: none; -webkit-user-drag: none;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    will-change: clip-path;
+  }
+  /* NOTE: clip-path on #imgRight is set ONLY via JS — never in CSS.
+     iOS fails to composite clip-path correctly when set statically
+     on an image that hasn't loaded yet. */
+
+  .slider-handle {
+    position: absolute; top: 0; bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 4px; background: #fff; z-index: 10;
+    box-shadow: 0 0 20px rgba(255,255,255,0.6);
+  }
+  .slider-handle::before {
+    content: '';
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 46px; height: 46px; border-radius: 50%;
+    background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  .slider-handle::after {
+    content: '◀ ▶';
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px; color: #333; letter-spacing: -1px; pointer-events: none;
+  }
+
+  .img-label {
+    position: absolute; top: 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1em; letter-spacing: 0.1em;
+    padding: 5px 14px; border-radius: 6px;
+    z-index: 5; backdrop-filter: blur(8px); pointer-events: none;
+  }
+  .img-label.left  { left: 14px;  background: rgba(74,144,232,0.85); color: #fff; }
+  .img-label.right { right: 14px; background: rgba(232,74,74,0.85);  color: #fff; }
+
+  /* ── CONTROLS ── */
+  .hint {
+    text-align: center; color: var(--muted);
+    font-size: 0.8em; letter-spacing: 0.06em;
+    margin-top: 12px; display: none;
+  }
+
+  .winner-controls {
+    width: 100%; display: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px; margin-top: 16px;
+  }
+
+  .winner-btn {
+    padding: 16px 20px; border: none; border-radius: 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.3em; letter-spacing: 0.08em;
+    cursor: pointer; transition: all 0.18s ease; color: #fff;
+  }
+  .winner-btn:hover  { transform: translateY(-3px); }
+  .winner-btn:active { transform: scale(0.97); }
+  .winner-btn.btn-1  { background: linear-gradient(135deg,#2a6adb,#4a90e8); box-shadow: 0 8px 30px rgba(74,144,232,0.35); }
+  .winner-btn.btn-2  { background: linear-gradient(135deg,#c0392b,#e84a4a); box-shadow: 0 8px 30px rgba(232,74,74,0.35); }
+
+  /* ── WINNER OVERLAY ── */
+  #winnerOverlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(8,8,14,0.97);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.4s ease; overflow: hidden;
+  }
+  #winnerOverlay.active { opacity: 1; pointer-events: all; }
+
+  .winner-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.5em,10vw,5.5em);
+    letter-spacing: 0.06em; color: var(--gold);
+    text-align: center; margin-bottom: 8px;
+    text-shadow: 0 0 60px rgba(245,200,66,0.5);
+    position: relative; z-index: 2;
+  }
+  .winner-subtitle {
+    font-size: clamp(0.85em,2.5vw,1.1em); color: var(--muted);
+    letter-spacing: 0.2em; text-transform: uppercase;
+    margin-bottom: 28px; position: relative; z-index: 2;
+  }
+  .winner-img-wrap {
+    position: relative; z-index: 2;
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 0 0 4px var(--gold), 0 0 0 8px rgba(245,200,66,0.3), 0 40px 100px rgba(0,0,0,0.7);
+    max-width: min(80vw,600px);
+    animation: winnerPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+    animation-play-state: paused;
+  }
+  #winnerOverlay.active .winner-img-wrap { animation-play-state: running; }
+  @keyframes winnerPop {
+    from { transform: scale(0.7) rotate(-2deg); opacity: 0; }
+    to   { transform: scale(1)   rotate(0deg);  opacity: 1; }
+  }
+  .winner-img-wrap img { display: block; width: 100%; max-height: 55vh; object-fit: cover; }
+
+  .winner-actions {
+    display: flex; gap: 14px; margin-top: 28px;
+    position: relative; z-index: 2; flex-wrap: wrap; justify-content: center;
+  }
+  .action-btn {
+    padding: 12px 28px; border-radius: 50px;
+    border: 2px solid var(--border); background: var(--surface2);
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-weight: 600; font-size: 0.9em; cursor: pointer; transition: all 0.2s;
+  }
+  .action-btn:hover { border-color: var(--gold); color: var(--gold); transform: translateY(-2px); }
+  .action-btn.primary { background: var(--gold); color: #000; border-color: var(--gold); }
+  .action-btn.primary:hover { background: var(--gold2); border-color: var(--gold2); }
+
+  .speed-control {
+    position: relative; z-index: 2;
+    margin-top: 20px; text-align: center;
+  }
+  .speed-control label {
+    display: block; font-size: 0.8em; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+  }
+  .speed-row {
+    display: flex; align-items: center; gap: 12px; justify-content: center;
+  }
+  .speed-label { font-size: 0.75em; color: var(--muted); width: 32px; }
+  .speed-label:last-child { text-align: right; }
+  #speedSlider {
+    -webkit-appearance: none; appearance: none;
+    width: 180px; height: 4px;
+    background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+  }
+  #speedSlider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--gold); cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  #speedSlider::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--gold); cursor: pointer; border: none;
+  }
+  .speed-value {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.1em;
+    color: var(--gold); margin-top: 6px; letter-spacing: 0.1em;
+  }
+
+  /* ── Settings Panel ── */
+  .settings-toggle-wrap {
+    position: relative; z-index: 2;
+    margin-top: 14px; text-align: center;
+  }
+  .settings-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85em;
+    padding: 7px 18px;
+    border-radius: 50px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+  .settings-toggle:hover { border-color: var(--gold); color: var(--gold); }
+
+  .settings-panel {
+    display: none;
+    position: relative; z-index: 2;
+    margin-top: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    width: 100%;
+    max-width: 380px;
+    text-align: left;
+  }
+  .settings-panel.open { display: block; }
+
+  .settings-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1em; letter-spacing: 0.12em;
+    color: var(--gold); margin-bottom: 18px;
+    text-align: center;
+  }
+
+  .setting-row { margin-bottom: 18px; }
+  .setting-row:last-child { margin-bottom: 0; }
+
+  .setting-label {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 0.85em; font-weight: 600; color: var(--text);
+    margin-bottom: 3px;
+  }
+  .setting-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.15em; color: var(--gold); letter-spacing: 0.08em;
+  }
+  .setting-sub {
+    font-size: 0.7em; color: var(--muted);
+    margin-bottom: 8px; letter-spacing: 0.04em;
+  }
+  .slider-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .slider-cap {
+    font-size: 0.7em; color: var(--muted);
+    min-width: 28px; text-align: center;
+  }
+  .slider-row input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none; appearance: none;
+    height: 4px; background: var(--border);
+    border-radius: 2px; outline: none; cursor: pointer;
+  }
+  .slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--gold); cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .slider-row input[type="range"]::-moz-range-thumb {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--gold); cursor: pointer; border: none;
+  }
+
+  /* All settings dropdowns */
+  #starSelect, #schemeSelect, #windSelect, #shapeSelect {
+    width: 100%;
+    margin-top: 4px;
+    padding: 10px 14px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88em;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23f5c842' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+  #starSelect:focus, #schemeSelect:focus, #windSelect:focus, #shapeSelect:focus { border-color: var(--gold); }
+  #starSelect option, #schemeSelect option, #windSelect option, #shapeSelect option { background: #1a1a2e; color: var(--text); }
+
+  /* Main page config panel */
+  .main-config {
+    width: 100%; margin-top: 28px;
+  }
+  .main-config-toggle {
+    width: 100%; padding: 14px 20px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; color: var(--muted);
+    font-family: 'DM Sans', sans-serif; font-size: 0.9em;
+    font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: pointer; text-align: left;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: all 0.2s;
+  }
+  .main-config-toggle:hover { border-color: var(--gold); color: var(--gold); }
+  .main-config-toggle .toggle-arrow { transition: transform 0.25s; font-style: normal; }
+  .main-config-toggle.open .toggle-arrow { transform: rotate(180deg); }
+  .main-config-body {
+    display: none; margin-top: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px 20px 24px;
+  }
+  .main-config-body.open { display: block; }
+
+  #confettiCanvas { position: fixed; inset: 0; z-index: 1001; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<canvas id="confettiCanvas"></canvas>
+
+<div id="winnerOverlay">
+  <div class="winner-title" id="winnerTitle">🏆 IMAGE 1 WINS! 🏆</div>
+  <div class="winner-subtitle">And the winner is…</div>
+  <div class="winner-img-wrap">
+    <img id="winnerImg" alt="Winner">
+  </div>
+  <div class="winner-actions">
+    <button class="action-btn primary" id="btnRestart">🔄 New Comparison</button>
+    <button class="action-btn" id="btnClose">✖ Close</button>
+  </div>
+  <div class="speed-control">
+    <label>🎉 Confetti Speed</label>
+    <div class="speed-row">
+      <span class="speed-label">Slow</span>
+      <input type="range" id="speedSliderOverlay" min="1" max="20" value="10" step="1">
+      <span class="speed-label">Fast</span>
+    </div>
+    <div class="speed-value" id="speedValueOverlay">1.0×</div>
+    <div style="font-size:0.7em; color:var(--muted); margin-top:8px;">
+      ⚙️ Full settings (size, shape, colour, wind) on the main page
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <header>
+    <div class="eyebrow">Works on iPad · Safari · Chrome</div>
+    <h1>IMAGE <span>FACE-OFF</span></h1>
+  </header>
+
+  <div class="upload-section">
+
+    <!--
+      iOS FILE INPUT FIX (DEFINITIVE):
+      - Input is INSIDE the label, covers it fully via position:absolute inset:0
+      - opacity:0 is the ONLY safe hide method on iOS (not display:none, not off-screen)
+      - The input IS the tap target at z-index:10 — no JS click() proxying
+      - addEventListener used (not onchange attribute)
+      - value reset to null (not '') for Safari compatibility
+    -->
+    <label class="drop-zone" id="dz1">
+      <input type="file" id="file1" accept="image/*">
+      <span class="dz-icon">📸</span>
+      <div class="dz-badge">IMAGE 1</div>
+      <div class="dz-sub">Tap to choose</div>
+      <div class="dz-name" id="name1"></div>
+      <img class="dz-thumb" id="thumb1" alt="">
+    </label>
+
+    <label class="drop-zone" id="dz2">
+      <input type="file" id="file2" accept="image/*">
+      <span class="dz-icon">🖼️</span>
+      <div class="dz-badge">IMAGE 2</div>
+      <div class="dz-sub">Tap to choose</div>
+      <div class="dz-name" id="name2"></div>
+      <img class="dz-thumb" id="thumb2" alt="">
+    </label>
+
+  </div>
+
+  <!-- ⚙️ CONFETTI CONFIG — visible on main page before picking images -->
+  <div class="main-config">
+    <button class="main-config-toggle" id="mainConfigToggle">
+      <span>⚙️ &nbsp;Confetti Settings</span>
+      <i class="toggle-arrow">▼</i>
+    </button>
+    <div class="main-config-body" id="mainConfigBody">
+
+      <div class="settings-title">🎉 Confetti Settings</div>
+
+      <div class="setting-row">
+        <div class="setting-label"><span>Confetti Count</span><span class="setting-value" id="countValue">500</span></div>
+        <div class="setting-sub">Number of pieces fired</div>
+        <div class="slider-row">
+          <span class="slider-cap">200</span>
+          <input type="range" id="countSlider" min="200" max="2000" value="500" step="50">
+          <span class="slider-cap">2000</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label"><span>🎉 Confetti Speed</span><span class="setting-value" id="speedValue">1.0×</span></div>
+        <div class="setting-sub">How fast the pieces fly</div>
+        <div class="slider-row">
+          <span class="slider-cap">Slow</span>
+          <input type="range" id="speedSlider" min="1" max="20" value="10" step="1">
+          <span class="slider-cap">Fast</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label"><span>💨 Wind Force</span><span class="setting-value" id="windValue">Calm</span></div>
+        <div class="setting-sub">Beaufort Scale — affects horizontal drift of all pieces</div>
+        <select id="windSelect">
+          <option value="0"  selected>🌑 0 — Calm</option>
+          <option value="1"          >🍃 1 — Light Air</option>
+          <option value="2"          >🍃 2 — Light Breeze</option>
+          <option value="3"          >💨 3 — Gentle Breeze</option>
+          <option value="4"          >💨 4 — Moderate Breeze</option>
+          <option value="5"          >💨 5 — Fresh Breeze</option>
+          <option value="6"          >🌬️ 6 — Strong Breeze</option>
+          <option value="7"          >🌬️ 7 — Near Gale</option>
+          <option value="8"          >🌀 8 — Gale</option>
+          <option value="9"          >🌀 9 — Strong Gale</option>
+          <option value="10"         >⛈️ 10 — Storm</option>
+          <option value="11"         >⛈️ 11 — Violent Storm</option>
+          <option value="12"         >🌪️ 12 — Hurricane</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label"><span>⭐ Confetti Size</span><span class="setting-value" id="starSizeValue">Sirius</span></div>
+        <div class="setting-sub">Named after stars in our universe · ±30% random variance</div>
+        <select id="starSelect">
+          <option value="8"              >☀️  The Sun         —   tiny (8px)</option>
+          <option value="12"             >🌟  Alpha Centauri  —  small (12px)</option>
+          <option value="18"             >✨  Altair           —  small (18px)</option>
+          <option value="28"    selected >💫  Sirius           — medium (28px)</option>
+          <option value="40"             >⭐  Vega             — medium (40px)</option>
+          <option value="55"             >🌠  Arcturus         —  large (55px)</option>
+          <option value="80"             >🔆  Polaris           —  large (80px)</option>
+          <option value="100"            >🌞  Canopus          —   epic (100px)</option>
+          <option value="125"            >💥  Rigel             —   epic (125px)</option>
+          <option value="150"            >🔴  Antares           — giant (150px)</option>
+          <option value="200"            >🌋  Betelgeuse       — giant (200px)</option>
+        </select>
+      </div>
+
+      <div class="setting-row" id="schemeRow">
+        <div class="setting-label"><span>🎨 Colour Scheme</span><span class="setting-value" id="schemeValue">Classic</span></div>
+        <div class="setting-sub">Palette applied to every confetti piece</div>
+        <div id="schemeDimNote" style="display:none; font-size:0.7em; color:var(--gold); margin-bottom:6px;">
+          ⚠️ Colour scheme does not apply to emoji — emojis use their native colours
+        </div>
+        <select id="schemeSelect">
+          <option value="Classic" selected>🎉 Classic  — Red, Blue, Green, Yellow</option>
+          <option value="Ocean"          >🌊 Ocean    — Deep blues &amp; teals</option>
+          <option value="Fire"           >🔥 Fire     — Reds, oranges &amp; gold</option>
+          <option value="Gold"           >✨ Gold     — Rich golds &amp; ambers</option>
+          <option value="Greys"          >🌫️ Greys    — Elegant monochrome</option>
+          <option value="Chaos"          >🌈 Chaos    — Fully random every piece</option>
+          <option value="Gallery"        >🖼️ Gallery  — Vivid Office-style accents</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label"><span>🔷 Shape</span><span class="setting-value" id="shapeValue">Random</span></div>
+        <div class="setting-sub">Single shape, Mixed set, or Emoji explosion</div>
+        <select id="shapeSelect">
+          <optgroup label="── Auto ──">
+            <option value="random" selected>🎲 Random  — One shape chosen at random each launch</option>
+            <option value="mixed"          >🎭 Mixed   — Many shapes all at once</option>
+          </optgroup>
+          <optgroup label="── Geometric ──">
+            <option value="ribbon"   >🎀 Ribbon     — Classic flat streamer</option>
+            <option value="rect"     >▬  Rectangle  — Flat paper square</option>
+            <option value="circle"   >⚫ Circle     — Round dot</option>
+            <option value="star"     >⭐ Star       — 5-point star</option>
+            <option value="diamond"  >💎 Diamond    — Rotated square</option>
+            <option value="triangle" >🔺 Triangle   — Three-point</option>
+            <option value="heart"    >❤️  Heart      — Classic heart</option>
+            <option value="cube"     >🔷 Cube       — Perspective box</option>
+            <option value="lightning">⚡ Lightning  — Bolt shape</option>
+            <option value="snowflake">❄️  Snowflake  — 6-arm crystal</option>
+            <option value="paper"    >📄 Paper      — Crumpled rectangle</option>
+            <option value="foil"     >✨ Foil       — Thin metallic sliver</option>
+            <option value="glitter"  >💫 Glitter    — Tiny sparkle dot</option>
+            <option value="can"      >🥫 Can        — Cylinder shape</option>
+          </optgroup>
+          <optgroup label="── Emoji Sets ──">
+            <option value="e_party"      >🎉 Party Set       — 🎉🎊🎈🎁🎀🎟</option>
+            <option value="e_celebration">🧨 Celebration Set — 🧨🎃🎋🎍🎎🎏🎐</option>
+            <option value="e_nature"     >🐸 Nature Set      — 🐸🦋🍇🇦🇺</option>
+            <option value="e_mixed"      >🌈 All Emoji Set   — Full emoji set</option>
+          </optgroup>
+          <optgroup label="── Single Emoji ──">
+            <option value="🦍">🦍 Gorilla</option>
+            <option value="🎃">🎃 Jack-o-lantern</option>
+            <option value="🧨">🧨 Firecracker</option>
+            <option value="🎈">🎈 Balloon</option>
+            <option value="🎉">🎉 Party Popper</option>
+            <option value="🎊">🎊 Confetti Ball</option>
+            <option value="🎋">🎋 Tanabata Tree</option>
+            <option value="🎍">🎍 Pine Decoration</option>
+            <option value="🎎">🎎 Japanese Dolls</option>
+            <option value="🎏">🎏 Carp Streamer</option>
+            <option value="🎐">🎐 Wind Chime</option>
+            <option value="🎀">🎀 Ribbon</option>
+            <option value="🎁">🎁 Gift</option>
+            <option value="🎟">🎟 Ticket</option>
+            <option value="🐸">🐸 Frog</option>
+            <option value="🦋">🦋 Butterfly</option>
+            <option value="🍇">🍇 Grapes</option>
+            <option value="🇦🇺">🇦🇺 Australia</option>
+          </optgroup>
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="arena-wrapper" id="arenaWrapper">
+    <div class="arena" id="arena">
+      <img id="imgLeft"  alt="Image 1">
+      <img id="imgRight" alt="Image 2">
+      <div class="img-label left">IMAGE 1</div>
+      <div class="img-label right">IMAGE 2</div>
+      <div class="slider-handle" id="handle"></div>
+    </div>
+  </div>
+
+  <div class="hint" id="hint">◀ Drag the slider to compare · then pick your winner below ▶</div>
+
+  <div class="winner-controls" id="winnerControls">
+    <button class="winner-btn btn-1" id="btnWin1">🏆 IMAGE 1 WINS</button>
+    <button class="winner-btn btn-2" id="btnWin2">🏆 IMAGE 2 WINS</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+var img1Src = null, img2Src = null;
+var sliderPct = 50, dragging = false;
+
+var arena    = document.getElementById('arena');
+var imgLeft  = document.getElementById('imgLeft');
+var imgRight = document.getElementById('imgRight');
+var handle   = document.getElementById('handle');
+var wrapper  = document.getElementById('arenaWrapper');
+var controls = document.getElementById('winnerControls');
+var hint     = document.getElementById('hint');
+var overlay  = document.getElementById('winnerOverlay');
+var canvas   = document.getElementById('confettiCanvas');
+var ctx      = canvas.getContext('2d');
+
+/* ════════════════════════════════════════════════════════
+   FILE LOADING — all four iOS rules applied:
+   1. Input in DOM, visible to event system (opacity:0 in CSS)
+   2. addEventListener not onchange attribute
+   3. FileReader.readAsDataURL (not createObjectURL)
+   4. this.value = null after read (not empty string)
+   
+   IMAGE DISPLAY FIX:
+   - Never set img.src on an element that has src="" as attribute
+     (causes a race on iOS). Use setAttribute + force reflow.
+   - Also write to a thumbnail inside the drop zone for confirmation.
+════════════════════════════════════════════════════════ */
+function handleFile(file, num, inputEl) {
+  if (!file) return;
+
+  var reader = new FileReader();
+
+  reader.addEventListener('load', function(e) {
+    var dataUrl = e.target.result;
+    var fname   = (file.name && file.name.length > 0)
+      ? (file.name.length > 22 ? file.name.slice(0,19) + '…' : file.name)
+      : ('Image ' + num);
+
+    if (num === 1) {
+      img1Src = dataUrl;
+      document.getElementById('thumb1').setAttribute('src', dataUrl);
+      document.getElementById('dz1').classList.add('has-image');
+      document.getElementById('name1').textContent = '✓ ' + fname;
+    } else {
+      img2Src = dataUrl;
+      document.getElementById('thumb2').setAttribute('src', dataUrl);
+      document.getElementById('dz2').classList.add('has-image');
+      document.getElementById('name2').textContent = '✓ ' + fname;
+    }
+
+    /* Reset AFTER load completes */
+    try { inputEl.value = null; } catch(ex) {}
+
+    if (img1Src && img2Src) showArena();
+  });
+
+  reader.addEventListener('error', function() {
+    alert('Could not read image ' + num + '. Please try again.');
+  });
+
+  reader.readAsDataURL(file);
+}
+
+/* iOS: listen on input element directly.
+   Removed for= from label to prevent double-trigger on iOS
+   (label with for= AND child input fires change twice on some iOS versions) */
+document.getElementById('file1').addEventListener('change', function() {
+  if (this.files && this.files.length > 0) handleFile(this.files[0], 1, this);
+});
+
+document.getElementById('file2').addEventListener('change', function() {
+  if (this.files && this.files.length > 0) handleFile(this.files[0], 2, this);
+});
+
+/* ── Arena ── */
+function showArena() {
+  wrapper.classList.add('visible');
+  controls.style.display = 'grid';
+  hint.style.display = 'block';
+
+  // iOS fix: set arena image srcs AFTER the wrapper is visible.
+  // Setting src into a display:none container = iOS never decodes/composites it.
+  // Sequence:
+  //   1. Make wrapper visible
+  //   2. Force reflow by reading offsetWidth (flushes layout)
+  //   3. Clear any stale src first (busts iOS GPU texture cache on repeat runs)
+  //   4. Set new src
+  //   5. Double-rAF to let iOS decode and composite before applying clip-path
+  void wrapper.offsetWidth; // force synchronous reflow
+
+  // Clear first — critical for repeat runs where iOS reuses the old GPU layer
+  imgLeft.removeAttribute('src');
+  imgRight.removeAttribute('src');
+  void imgLeft.offsetWidth;  // flush
+  void imgRight.offsetWidth;
+
+  // Now set the real srcs
+  imgLeft.setAttribute('src',  img1Src);
+  imgRight.setAttribute('src', img2Src);
+
+  // Wait for decode + composite, then apply clip-path
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      updateSlider(50);
+    });
+  });
+
+  setTimeout(function() {
+    wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 150);
+}
+
+function updateSlider(pct) {
+  sliderPct = Math.max(2, Math.min(98, pct));
+  imgRight.style.clipPath = 'inset(0 0 0 ' + sliderPct + '%)';
+  handle.style.left = sliderPct + '%';
+}
+
+function pctFromX(clientX) {
+  var r = arena.getBoundingClientRect();
+  return ((clientX - r.left) / r.width) * 100;
+}
+
+arena.addEventListener('mousedown', function(e) {
+  dragging = true; updateSlider(pctFromX(e.clientX)); e.preventDefault();
+});
+window.addEventListener('mousemove', function(e) {
+  if (dragging) updateSlider(pctFromX(e.clientX));
+});
+window.addEventListener('mouseup', function() { dragging = false; });
+
+arena.addEventListener('touchstart', function(e) {
+  dragging = true; updateSlider(pctFromX(e.touches[0].clientX)); e.preventDefault();
+}, { passive: false });
+window.addEventListener('touchmove', function(e) {
+  if (dragging) { updateSlider(pctFromX(e.touches[0].clientX)); e.preventDefault(); }
+}, { passive: false });
+window.addEventListener('touchend', function() { dragging = false; });
+
+/* ── Winner ── */
+document.getElementById('btnWin1').addEventListener('click', function() { declareWinner(1); });
+document.getElementById('btnWin2').addEventListener('click', function() { declareWinner(2); });
+document.getElementById('btnClose').addEventListener('click', closeWinner);
+document.getElementById('btnRestart').addEventListener('click', resetAll);
+
+// ── Main config panel toggle ──────────────────────────────
+document.getElementById('mainConfigToggle').addEventListener('click', function() {
+  var body = document.getElementById('mainConfigBody');
+  body.classList.toggle('open');
+  this.classList.toggle('open');
+});
+
+// ── Speed sliders — main page + overlay stay in sync ─────
+var confettiSpeed = 1.0;
+function setSpeed(val) {
+  confettiSpeed = val / 10;
+  document.getElementById('speedValue').textContent      = confettiSpeed.toFixed(1) + '×';
+  document.getElementById('speedValueOverlay').textContent = confettiSpeed.toFixed(1) + '×';
+  document.getElementById('speedSlider').value           = val;
+  document.getElementById('speedSliderOverlay').value    = val;
+}
+document.getElementById('speedSlider').addEventListener('input', function() { setSpeed(this.value); });
+document.getElementById('speedSliderOverlay').addEventListener('input', function() { setSpeed(this.value); });
+
+// ── Count ─────────────────────────────────────────────────
+var confettiCount = 500;
+document.getElementById('countSlider').addEventListener('input', function() {
+  confettiCount = parseInt(this.value);
+  document.getElementById('countValue').textContent = confettiCount;
+});
+
+// ── Beaufort wind factor ──────────────────────────────────
+// Maps Beaufort 0–12 to a horizontal drift multiplier applied per particle.
+// At Force 0 = no wind. Force 12 = hurricane — particles sweep hard left or right.
+var beaufortForce = 0;
+var beaufortNames = ['Calm','Light Air','Light Breeze','Gentle Breeze','Moderate Breeze',
+  'Fresh Breeze','Strong Breeze','Near Gale','Gale','Strong Gale','Storm','Violent Storm','Hurricane'];
+// Wind direction: randomly chosen at each launch — left or right
+var windDirection = 1;
+document.getElementById('windSelect').addEventListener('change', function() {
+  beaufortForce = parseInt(this.value);
+  document.getElementById('windValue').textContent = beaufortNames[beaufortForce];
+});
+
+// ── Star size ─────────────────────────────────────────────
+var starBaseSize = 28;
+var starNames = {
+  '8':'The Sun','12':'Alpha Centauri','18':'Altair','28':'Sirius',
+  '40':'Vega','55':'Arcturus','80':'Polaris','100':'Canopus',
+  '125':'Rigel','150':'Antares','200':'Betelgeuse'
+};
+document.getElementById('starSelect').addEventListener('change', function() {
+  starBaseSize = parseInt(this.value);
+  document.getElementById('starSizeValue').textContent = starNames[this.value] || this.value + 'px';
+});
+
+// ── Colour scheme ─────────────────────────────────────────
+var currentTheme = 'Classic';
+document.getElementById('schemeSelect').addEventListener('change', function() {
+  currentTheme = this.value;
+  document.getElementById('schemeValue').textContent = this.value;
+});
+
+// ── Shape selector ────────────────────────────────────────
+var confettiShape = 'random';
+var activeShape   = 'ribbon';
+var shapeLabels = {
+  random:'Random', mixed:'Mixed', ribbon:'Ribbon', rect:'Rectangle',
+  circle:'Circle', star:'Star', diamond:'Diamond', triangle:'Triangle',
+  heart:'Heart', cube:'Cube', lightning:'Lightning', snowflake:'Snowflake',
+  paper:'Paper', foil:'Foil', glitter:'Glitter', can:'Can',
+  e_party:'Party Set 🎉', e_celebration:'Celebration Set 🧨',
+  e_nature:'Nature Set 🐸', e_mixed:'All Emoji 🌈',
+  '🦍':'🦍 Gorilla','🎃':'🎃 Jack-o-lantern','🧨':'🧨 Firecracker',
+  '🎈':'🎈 Balloon','🎉':'🎉 Party Popper','🎊':'🎊 Confetti Ball',
+  '🎋':'🎋 Tanabata Tree','🎍':'🎍 Pine Decoration','🎎':'🎎 Japanese Dolls',
+  '🎏':'🎏 Carp Streamer','🎐':'🎐 Wind Chime','🎀':'🎀 Ribbon',
+  '🎁':'🎁 Gift','🎟':'🎟 Ticket',
+  '🐸':'🐸 Frog','🦋':'🦋 Butterfly','🍇':'🍇 Grapes','🇦🇺':'🇦🇺 Australia'
+};
+document.getElementById('shapeSelect').addEventListener('change', function() {
+  confettiShape = this.value;
+  document.getElementById('shapeValue').textContent = shapeLabels[this.value] || this.value;
+  var isEmojiMode = (this.value.startsWith('e_') || this.value.codePointAt(0) > 127);
+  var schemeRow = document.getElementById('schemeRow');
+  schemeRow.style.opacity       = isEmojiMode ? '0.35' : '1';
+  schemeRow.style.pointerEvents = isEmojiMode ? 'none' : 'auto';
+  document.getElementById('schemeDimNote').style.display = isEmojiMode ? 'block' : 'none';
+  // Pre-cache emoji textures immediately on selection
+  if (isEmojiMode) prebuildEmojiCache();
+});
+
+// ── Emoji texture cache ───────────────────────────────────
+// Pre-renders each emoji to an offscreen canvas once.
+// drawP then uses drawImage (GPU blit) instead of fillText (expensive per-frame).
+var emojiCache = {};
+function cacheEmoji(ch, sizePx) {
+  var key = ch + '_' + sizePx;
+  if (emojiCache[key]) return emojiCache[key];
+  var sz  = Math.ceil(sizePx * 1.4);  // canvas slightly bigger than font for descenders
+  var oc  = document.createElement('canvas');
+  oc.width = oc.height = sz;
+  var ox  = oc.getContext('2d');
+  ox.font          = sizePx + 'px serif';
+  ox.textAlign     = 'center';
+  ox.textBaseline  = 'middle';
+  ox.fillText(ch, sz / 2, sz / 2);
+  emojiCache[key]  = oc;
+  return oc;
+}
+function prebuildEmojiCache() {
+  // Pre-warm cache for all emoji at the current star size — eliminates first-frame stutter
+  var allEmoji = ['🦍','🎃','🧨','🎈','🎉','🎊','🎋','🎍','🎎','🎏','🎐','🎀','🎁','🎟',
+                  '🐸','🦋','🍇','🇦🇺'];
+  var sz = starBaseSize;
+  allEmoji.forEach(function(e) { cacheEmoji(e, sz); });
+}
+
+function declareWinner(num) {
+  var src = num === 1 ? img1Src : img2Src;
+  document.getElementById('winnerImg').setAttribute('src', src);
+  document.getElementById('winnerTitle').textContent = '🏆  IMAGE ' + num + ' WINS!  🏆';
+  overlay.classList.add('active');
+  launchConfetti();
+}
+
+function closeWinner() {
+  overlay.classList.remove('active');
+  stopConfetti();
+}
+
+function resetAll() {
+  overlay.classList.remove('active');
+  stopConfetti();
+  img1Src = img2Src = null;
+  // Don't touch imgLeft/imgRight src here — showArena() clears and resets them
+  // cleanly in the right sequence. Touching them here causes iOS GPU cache issues.
+  document.getElementById('thumb1').removeAttribute('src');
+  document.getElementById('thumb2').removeAttribute('src');
+  document.getElementById('dz1').classList.remove('has-image');
+  document.getElementById('dz2').classList.remove('has-image');
+  document.getElementById('name1').textContent = '';
+  document.getElementById('name2').textContent = '';
+  wrapper.classList.remove('visible');
+  controls.style.display = 'none';
+  hint.style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   CONFETTI ENGINE — slow physics, timestamp lifetime, configurable speed
+══════════════════════════════════════════════════════════ */
+/* ── Colour Themes — ported from VBA LoadTheme() ─────────
+   Classic  : RGB palettes, ±brightness via JS tint/shade
+   Ocean    : Deep blues & teals
+   Fire     : Reds/oranges, weighted toward red (biased array)
+   Gold     : Random warm gold/amber per launch (like VBA PhysicsRandom)
+   Greys    : Monochrome elegant
+   Chaos    : Fully random RGB every particle
+   Gallery  : Vivid accent colours (Office-style)
+──────────────────────────────────────────────────────── */
+var THEMES = {
+  Classic: {
+    colors: ['#ff0000','#cc0000','#ff3333',   // reds
+             '#0078ff','#0050cc','#3399ff',   // blues
+             '#00c800','#009900','#33dd33',   // greens
+             '#ffc800','#cc9900','#ffdd44'],  // yellows
+    weighted: false
+  },
+  Ocean: {
+    colors: ['#002860','#00447a','#006494',
+             '#0078b4','#00a0c8','#00c8dc',
+             '#32c8dc','#64d8e8','#96e4f0',
+             '#78dcff','#aaeeff','#c8f4ff'],
+    weighted: false
+  },
+  Fire: {
+    // Weighted toward reds/oranges per VBA pWeights = Array(0.4,0.3,0.2,0.1)
+    // Achieved by repeating colours proportionally in the array
+    colors: ['#ff2800','#ff2800','#ff2800','#ff2800',   // 40% deep red
+             '#ff7800','#ff7800','#ff7800',              // 30% orange
+             '#ffc800','#ffc800',                        // 20% gold
+             '#960000'],                                 // 10% dark red
+    weighted: true
+  },
+  Gold: {
+    // VBA used PhysicsRandom() per launch — we recalculate on each launchConfetti()
+    colors: [], // populated dynamically in buildGoldPalette()
+    weighted: false,
+    dynamic: true
+  },
+  Greys: {
+    colors: ['#282828','#404040','#585858',
+             '#5a5a5a','#787878','#909090',
+             '#a0a0a0','#b8b8b8','#d0d0d0',
+             '#dcdcdc','#e8e8e8','#f0f0f0'],
+    weighted: false
+  },
+  Chaos: {
+    colors: [], // fully random per particle — handled in getColor()
+    weighted: false,
+    chaos: true
+  },
+  Gallery: {
+    // Vivid Office-style accent palette
+    colors: ['#ff4444','#ff8800','#ffcc00',
+             '#44cc44','#00aaff','#aa44ff',
+             '#ff44aa','#44ffcc','#ff6644',
+             '#44aaff','#ffaa44','#aa44cc'],
+    weighted: false
+  }
+};
+
+function buildGoldPalette() {
+  var palette = [];
+  for (var i = 0; i < 16; i++) {
+    var r = Math.floor(210 + Math.random() * 45);
+    var g = Math.floor(105 + Math.random() * 110);
+    var b = Math.floor(Math.random() * 40);
+    palette.push('rgb(' + r + ',' + g + ',' + b + ')');
+  }
+  THEMES.Gold.colors = palette;
+}
+
+function getColor() {
+  var theme = THEMES[currentTheme];
+  if (theme.chaos) {
+    return 'rgb(' + Math.floor(Math.random()*256) + ',' +
+      Math.floor(Math.random()*256) + ',' + Math.floor(Math.random()*256) + ')';
+  }
+  var c = theme.colors;
+  return c[Math.floor(Math.random() * c.length)];
+}
+
+var parts  = [];
+var rafId  = null;
+var waveId = null;
+
+canvas.width  = window.innerWidth;
+canvas.height = window.innerHeight;
+
+function rsz() {
+  var w = window.innerWidth, h = window.innerHeight;
+  if (!rafId && (canvas.width !== w || canvas.height !== h)) {
+    canvas.width = w; canvas.height = h;
+  }
+}
+window.addEventListener('resize', rsz);
+
+function spawnParticle(ox, oy, angleDeg, spreadDeg) {
+  var launch = (angleDeg * Math.PI / 180) + (Math.random() - 0.5) * (spreadDeg * Math.PI / 180) * 2;
+
+  // BASE speed is very small — confettiSpeed scales it
+  // At speed=1.0: 0.5–1.5 px/frame → gentle drift across screen
+  var spd    = (0.5 + Math.random() * 1.0) * confettiSpeed;
+
+  var EMOJI_PARTY       = ['🎉','🎊','🎈','🎁','🎀','🎟'];
+  var EMOJI_CELEBRATION = ['🧨','🎃','🎋','🎍','🎎','🎏','🎐'];
+  var EMOJI_NATURE      = ['🐸','🦋','🍇','🇦🇺'];
+  var EMOJI_ALL         = ['🎉','🎊','🎈','🎁','🎀','🎟','🧨','🎃','🎋','🎍','🎎','🎏','🎐','🦍','🐸','🦋','🍇','🇦🇺'];
+  var MIXED_SET         = ['ribbon','ribbon','rect','circle','star','diamond','triangle','heart'];
+
+  var shape;
+  switch (confettiShape) {
+    case 'random':        shape = activeShape; break;
+    case 'mixed':         shape = MIXED_SET[Math.floor(Math.random() * MIXED_SET.length)]; break;
+    case 'e_party':       shape = EMOJI_PARTY[Math.floor(Math.random() * EMOJI_PARTY.length)]; break;
+    case 'e_celebration': shape = EMOJI_CELEBRATION[Math.floor(Math.random() * EMOJI_CELEBRATION.length)]; break;
+    case 'e_nature':      shape = EMOJI_NATURE[Math.floor(Math.random() * EMOJI_NATURE.length)]; break;
+    case 'e_mixed':       shape = EMOJI_ALL[Math.floor(Math.random() * EMOJI_ALL.length)]; break;
+    default:              shape = confettiShape; break;
+  }
+
+  var isEmoji = (shape.codePointAt(0) > 127); // emoji if non-ASCII
+
+  // ±30% random variance around the chosen star size
+  var variance = 0.7 + Math.random() * 0.6;
+  var base     = starBaseSize * variance;
+
+  // Ribbons: thin & tall. Foil: very thin. Glitter: tiny dot. Others: square base.
+  // Emoji: use a SMALLER font multiplier — canvas font px renders larger than px implies
+  var w, h;
+  if      (isEmoji)            { w = base * 0.55; h = base * 0.55; }  // emoji renders ~2× stated px — compensate
+  else if (shape === 'ribbon') { w = base * 0.3;  h = base; }
+  else if (shape === 'foil')   { w = base * 0.15; h = base * 1.2; }
+  else if (shape === 'glitter'){ w = base * 0.35; h = base * 0.35; }
+  else if (shape === 'paper')  { w = base * 0.8;  h = base * 0.6; }
+  else if (shape === 'can')    { w = base * 0.5;  h = base; }
+  else                         { w = base; h = base; }
+
+  /* cartergj@bigpond.net.au — Confetti Life scaled to Speed */
+  var life = (5000 + Math.random() * 5000) / Math.exp(confettiSpeed) * 3;
+
+  // Emoji get: bigger speed boost (heavier feel needs more launch power)
+  // and much longer life with late fade so they stay vivid and readable
+  var emojiSpeedBoost = isEmoji ? 4.0 : 1.0;                          // was 2.5
+  var emojiLifeBoost  = isEmoji ? 2.5 : 1.0;                          // emoji live 2.5× longer
+  var fadeAt          = isEmoji ? life * 0.92 : life * 0.75;           // emoji fade in last 8% only
+
+  parts.push({
+    x: ox, y: oy,
+    vx: Math.cos(launch) * spd * emojiSpeedBoost,
+    vy: Math.sin(launch) * spd * emojiSpeedBoost,
+    gravity: 0.006 * confettiSpeed,
+    decay:   0.999,
+    // Store wind as separate property — not mixed with wobble
+    wobbleDrift: (Math.random() - 0.5) * 0.5 * confettiSpeed,  // natural random wobble only
+    wind:        windDirection * beaufortForce * 0.015,          // Beaufort wind — applied to vx each frame
+    tilt: Math.random() * Math.PI * 2,
+    tiltDir: Math.random() < 0.5 ? 1 : -1,
+    tiltSpd: 0.02 + Math.random() * 0.03,
+    wobble:  Math.random() * Math.PI * 2,
+    wobSpd:  0.015 + Math.random() * 0.02,
+    shape: shape, w: w, h: h, isEmoji: isEmoji,
+    color: getColor(),
+    alpha: 1,
+    born: Date.now(),
+    life: life * emojiLifeBoost,
+    fadeAt: fadeAt
+  });
+}
+
+function drawP(p) {
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, p.alpha);
+  ctx.translate(p.x, p.y);
+
+  // ── EMOJI — use pre-rendered offscreen canvas (GPU blit, not fillText per frame) ──
+  if (p.isEmoji) {
+    ctx.rotate(p.tilt);
+    var cached = cacheEmoji(p.shape, Math.ceil(p.w));
+    // drawImage centres the cached canvas on the particle position
+    ctx.drawImage(cached, -cached.width / 2, -cached.height / 2);
+    ctx.restore();
+    return;
+  }
+
+  // ── GEOMETRIC — all use fillStyle colour ─────────────────
+  ctx.fillStyle = p.color;
+  var r = p.w / 2;   // radius / half-width shorthand
+
+  switch (p.shape) {
+
+    case 'ribbon':
+      // Flat ellipse whose Y radius pulses with tilt — simulates 3D tumble
+      var ry = Math.abs(Math.cos(p.tilt)) * p.h * 0.5;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, Math.max(1, r), Math.max(1, ry), p.wobble, 0, Math.PI*2);
+      ctx.fill();
+      break;
+
+    case 'foil':
+      // Very thin metallic sliver — same as ribbon but narrower
+      var fy = Math.abs(Math.cos(p.tilt)) * p.h * 0.5;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, Math.max(0.5, p.w/2), Math.max(1, fy), p.wobble, 0, Math.PI*2);
+      ctx.fill();
+      break;
+
+    case 'rect':
+      ctx.rotate(p.tilt);
+      ctx.fillRect(-r, -p.h/2, p.w, p.h);
+      break;
+
+    case 'paper':
+      // Slightly skewed rectangle — looks crumpled
+      ctx.rotate(p.tilt);
+      ctx.beginPath();
+      ctx.moveTo(-r,       -p.h*0.5);
+      ctx.lineTo( r*0.9,  -p.h*0.45);
+      ctx.lineTo( r,       p.h*0.5);
+      ctx.lineTo(-r*0.85,  p.h*0.48);
+      ctx.closePath(); ctx.fill();
+      break;
+
+    case 'circle':
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI*2);
+      ctx.fill();
+      break;
+
+    case 'glitter':
+      // Tiny bright dot — draw two overlapping circles for sparkle
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = Math.max(0, p.alpha * 0.5);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(-r*0.3, -r*0.3, r*0.4, 0, Math.PI*2);
+      ctx.fill();
+      break;
+
+    case 'star': {
+      var r2 = r * 0.42;
+      ctx.rotate(p.tilt);
+      ctx.beginPath();
+      for (var i=0;i<10;i++){
+        var rr=i%2?r2:r, a=i/10*Math.PI*2-Math.PI/2;
+        i ? ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr)
+          : ctx.moveTo(Math.cos(a)*rr, Math.sin(a)*rr);
+      }
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+
+    case 'diamond':
+      // Rotated square — 4 points at N/E/S/W
+      ctx.rotate(p.tilt);
+      ctx.beginPath();
+      ctx.moveTo(0,  -r*1.3);
+      ctx.lineTo(r,   0);
+      ctx.lineTo(0,   r*1.3);
+      ctx.lineTo(-r,  0);
+      ctx.closePath(); ctx.fill();
+      break;
+
+    case 'triangle':
+      ctx.rotate(p.tilt);
+      ctx.beginPath();
+      ctx.moveTo(0,    -r);
+      ctx.lineTo(r,     r*0.87);
+      ctx.lineTo(-r,    r*0.87);
+      ctx.closePath(); ctx.fill();
+      break;
+
+    case 'heart': {
+      // Cubic bezier heart
+      ctx.rotate(p.tilt);
+      var s = r * 0.055;
+      ctx.beginPath();
+      ctx.moveTo(0, r*0.6);
+      ctx.bezierCurveTo(-r*1.1, -r*0.2,  -r*1.3, -r*1.1,  0,       -r*0.4);
+      ctx.bezierCurveTo( r*1.3, -r*1.1,   r*1.1, -r*0.2,  0,        r*0.6);
+      ctx.fill();
+      break;
+    }
+
+    case 'cube': {
+      // Simple perspective cube — front face + top + right side
+      ctx.rotate(p.tilt);
+      var d = r * 0.45;   // depth offset
+      // Front face
+      ctx.fillRect(-r*0.6, -r*0.5, r*1.2, r*1.0);
+      // Top face (darker)
+      ctx.globalAlpha = Math.max(0, p.alpha * 0.7);
+      ctx.beginPath();
+      ctx.moveTo(-r*0.6, -r*0.5);
+      ctx.lineTo(-r*0.6+d, -r*0.5-d);
+      ctx.lineTo( r*0.6+d, -r*0.5-d);
+      ctx.lineTo( r*0.6,   -r*0.5);
+      ctx.closePath(); ctx.fill();
+      // Right side (medium)
+      ctx.globalAlpha = Math.max(0, p.alpha * 0.55);
+      ctx.beginPath();
+      ctx.moveTo(r*0.6, -r*0.5);
+      ctx.lineTo(r*0.6+d, -r*0.5-d);
+      ctx.lineTo(r*0.6+d,  r*0.5-d);
+      ctx.lineTo(r*0.6,    r*0.5);
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+
+    case 'lightning':
+      // Classic zig-zag bolt
+      ctx.rotate(p.tilt);
+      ctx.beginPath();
+      ctx.moveTo( r*0.3,  -r);
+      ctx.lineTo(-r*0.1,  -r*0.05);
+      ctx.lineTo( r*0.35, -r*0.05);
+      ctx.lineTo(-r*0.3,   r);
+      ctx.lineTo( r*0.05,  r*0.1);
+      ctx.lineTo(-r*0.3,   r*0.1);
+      ctx.closePath(); ctx.fill();
+      break;
+
+    case 'snowflake': {
+      // 6-arm crystal
+      ctx.rotate(p.tilt);
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth   = Math.max(1, r * 0.15);
+      ctx.lineCap     = 'round';
+      for (var arm=0; arm<6; arm++) {
+        ctx.save();
+        ctx.rotate(arm * Math.PI / 3);
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-r); ctx.stroke();
+        // small cross-bars
+        ctx.beginPath(); ctx.moveTo(-r*0.3,-r*0.55); ctx.lineTo(r*0.3,-r*0.55); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-r*0.2,-r*0.8); ctx.lineTo(r*0.2,-r*0.8); ctx.stroke();
+        ctx.restore();
+      }
+      break;
+    }
+
+    case 'can': {
+      // Cylinder: rectangle body + ellipse top
+      ctx.rotate(p.tilt);
+      var cw = p.w * 0.5, ch = p.h;
+      ctx.fillRect(-cw/2, -ch/2, cw, ch);
+      // Top ellipse
+      ctx.beginPath();
+      ctx.ellipse(0, -ch/2, cw/2, cw*0.2, 0, 0, Math.PI*2);
+      ctx.fill();
+      // Bottom ellipse (slightly darker)
+      ctx.globalAlpha = Math.max(0, p.alpha * 0.7);
+      ctx.beginPath();
+      ctx.ellipse(0, ch/2, cw/2, cw*0.2, 0, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    }
+
+    default:
+      // Fallback: circle
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI*2);
+      ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function tick() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  var now = Date.now();
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var p = parts[i];
+    var age = now - p.born;
+    if (age >= p.life) { parts.splice(i,1); continue; }
+    if (age > p.fadeAt) p.alpha = 1 - (age - p.fadeAt) / (p.life - p.fadeAt);
+    p.vx *= p.decay; p.vy *= p.decay;
+    p.vy += p.gravity;
+    p.vx += p.wind;                                        // Beaufort wind accelerates vx each frame
+    p.wobble += p.wobSpd;
+    p.x += p.vx + Math.sin(p.wobble) * p.wobbleDrift;     // wobble is cosmetic only
+    p.y += p.vy;
+    p.tilt += p.tiltSpd * p.tiltDir;
+    // Horizontal: wrap around when wind is blowing (bounce would fight the wind)
+    // Vertical: always bounce so particles stay on screen full lifespan
+    if (beaufortForce > 0) {
+      if (p.x < -100)                { p.x = canvas.width  + 100; }
+      if (p.x > canvas.width  + 100) { p.x = -100; }
+    } else {
+      if (p.x < 0)           { p.x = 0;            p.vx =  Math.abs(p.vx) * 0.4; }
+      if (p.x > canvas.width){ p.x = canvas.width;  p.vx = -Math.abs(p.vx) * 0.4; }
+    }
+    if (p.y < 0)            { p.y = 0;             p.vy =  Math.abs(p.vy) * 0.3; }
+    if (p.y > canvas.height){ p.y = canvas.height; p.vy = -Math.abs(p.vy) * 0.5; }
+    drawP(p);
+  }
+  if (parts.length > 0) rafId = requestAnimationFrame(tick);
+  else rafId = null;
+}
+
+function startLoop() { if (!rafId) rafId = requestAnimationFrame(tick); }
+
+function burst(ox, oy, angleDeg, spread, count) {
+  for (var i=0; i<count; i++) spawnParticle(ox, oy, angleDeg, spread);
+}
+
+function launchConfetti() {
+  if (currentTheme === 'Gold') buildGoldPalette();
+
+  // Wind direction chosen fresh each launch — adds variety
+  windDirection = Math.random() < 0.5 ? 1 : -1;
+
+  // Pre-cache emoji textures at current star size before particles spawn
+  prebuildEmojiCache();
+
+  // Resolve shape ONCE per launch — Random picks one shape for the whole run
+  var GEOMETRIC = ['ribbon','rect','circle','star','diamond','triangle','heart','cube','lightning','snowflake','paper','foil','glitter','can'];
+  if (confettiShape === 'random') {
+    activeShape = GEOMETRIC[Math.floor(Math.random() * GEOMETRIC.length)];
+  } else {
+    activeShape = confettiShape;
+  }
+
+  stopConfetti();
+  var cx = canvas.width*0.5, cy = canvas.height*0.4;
+  var bx = canvas.width,     by = canvas.height;
+
+  // Distribute confettiCount across waves proportionally.
+  // Base total of hardcoded counts = 320 (80+100+60+80).
+  // Scale each wave by (confettiCount / 320), minimum 1.
+  var scale = confettiCount / 320;
+  var w1  = Math.max(1, Math.round(80  * scale));  // centre burst
+  var w2  = Math.max(1, Math.round(50  * scale));  // each side cannon (×2)
+  var w3  = Math.max(1, Math.round(60  * scale));  // second centre
+  var w4  = Math.max(1, Math.round(40  * scale));  // each side cannon (×2)
+  var wT1 = Math.max(1, Math.round(5   * scale));  // trickle sides
+  var wT2 = Math.max(1, Math.round(8   * scale));  // trickle centre
+
+  burst(cx, cy, 270, 180, w1); startLoop();
+  setTimeout(function(){ burst(0,by,300,40,w2); burst(bx,by,240,40,w2); startLoop(); }, 200);
+  setTimeout(function(){ burst(cx,cy,270,180,w3); startLoop(); }, 600);
+  setTimeout(function(){ burst(0,by,300,40,w4); burst(bx,by,240,40,w4); startLoop(); }, 1100);
+
+  var endAt = Date.now() + 8000;
+  waveId = setInterval(function() {
+    if (Date.now() > endAt) { clearInterval(waveId); waveId = null; return; }
+    burst(0,  by, 300, 40, wT1);
+    burst(bx, by, 240, 40, wT1);
+    burst(canvas.width*(0.2+Math.random()*0.6), cy, 270, 90, wT2);
+    startLoop();
+  }, 300);
+}
+
+function stopConfetti() {
+  if (rafId)  { cancelAnimationFrame(rafId); rafId = null; }
+  if (waveId) { clearInterval(waveId); waveId = null; }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  parts = [];
+}
+</script>
+</body>
+</html>
