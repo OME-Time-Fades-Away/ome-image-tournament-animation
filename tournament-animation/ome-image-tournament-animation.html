@@ -1132,7 +1132,7 @@ body::before {
 
 <!-- ── Navigation ── -->
 <nav class="nav">
-  <div class="nav-title" id="navTitle" data-version="Build v3 · 2026-03-03">⚡ TOURNAMENT</div>
+  <div class="nav-title" id="navTitle" data-version="Build v4 · 2026-03-04">⚡ TOURNAMENT</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-screen="import">Players</button>
     <button class="nav-tab" data-screen="bracket">Round</button>
@@ -1306,6 +1306,7 @@ body::before {
           <option value="Greys">🌫️ Greys — Elegant monochrome</option>
           <option value="Chaos">🌈 Chaos — Fully random every piece</option>
           <option value="Gallery">🖼️ Gallery — Vivid Office-style accents</option>
+          <option value="Sriracha">🌶️ Sriracha — Deep reds &amp; embers</option>
         </select>
       </div>
 
@@ -1436,6 +1437,7 @@ body::before {
           <option value="fire">Fire Storm</option>
           <option value="gold">Gold Rush</option>
           <option value="matrix" selected>Matrix</option>
+          <option value="sriracha">Sriracha</option>
         </select>
       </div>
 
@@ -2278,10 +2280,16 @@ var DANCE = (function() {
   var PHASE_NAMES = ['Cannon','Vortex','Collapse','Dance','Shockwave','Reveal'];
 
   var THEMES = {
-    blue:   { primary:'#4ab0ff', secondary:'#a0d8ff', burst:'#ffffff', bg:'#000818' },
-    fire:   { primary:'#ff6a00', secondary:'#ffcc00', burst:'#ffffff', bg:'#0a0200' },
-    gold:   { primary:'#f5c842', secondary:'#ffe680', burst:'#ffffff', bg:'#0a0800' },
-    matrix: { primary:'#00ff41', secondary:'#80ffaa', burst:'#ffffff', bg:'#000800' },
+    blue:     { primary:'#4ab0ff', secondary:'#a0d8ff', burst:'#ffffff', bg:'#000818',
+                extras:['#ffffff','#ffffa0','#ffd0ff'] },
+    fire:     { primary:'#ff6a00', secondary:'#ffcc00', burst:'#ffffff', bg:'#0a0200',
+                extras:['#ffffff','#ffffa0','#ff9040'] },
+    gold:     { primary:'#f5c842', secondary:'#ffe680', burst:'#ffffff', bg:'#0a0800',
+                extras:['#ffffff','#ffffa0','#ffd0ff'] },
+    matrix:   { primary:'#00ff41', secondary:'#80ffaa', burst:'#ffffff', bg:'#000800',
+                extras:['#ffffff','#c0ffd0','#00cc33'] },
+    sriracha: { primary:'#870300', secondary:'#a04436', burst:'#990000', bg:'#0d0100',
+                extras:['#ff4422','#c82010','#ff8060'] },
   };
 
   /* ── Read settings from Customise panel ── */
@@ -2357,8 +2365,8 @@ var DANCE = (function() {
     for (var n=0;n<count;n++) {
       var launch = (angleDeg*Math.PI/180) + (Math.random()-0.5)*(spreadDeg*Math.PI/180)*2;
       var spd = (1 + Math.random()*2) * currentCfg.speed;
-      var cols = [theme.primary, theme.secondary, theme.burst,
-                  '#ffffff','#ffffa0','#ffd0ff'];
+      var cols = [theme.primary, theme.secondary, theme.burst]
+                  .concat(theme.extras || ['#ffffff','#ffffa0','#ffd0ff']);
       var color = cols[Math.floor(Math.random()*cols.length)];
       var p = new Particle(ox, oy,
         Math.cos(launch)*spd*220,
@@ -3813,13 +3821,14 @@ var shapeLabels = {
 
 /* ── Colour themes ── */
 var THEMES = {
-  Classic: { colors: ['#ff0000','#cc0000','#ff3333','#0078ff','#0050cc','#3399ff','#00c800','#009900','#33dd33','#ffc800','#cc9900','#ffdd44'] },
-  Ocean:   { colors: ['#002860','#00447a','#006494','#0078b4','#00a0c8','#00c8dc','#32c8dc','#64d8e8','#96e4f0','#78dcff','#aaeeff','#c8f4ff'] },
-  Fire:    { colors: ['#ff2800','#ff2800','#ff2800','#ff2800','#ff7800','#ff7800','#ff7800','#ffc800','#ffc800','#960000'], weighted: true },
-  Gold:    { colors: [], dynamic: true },
-  Greys:   { colors: ['#282828','#404040','#585858','#787878','#909090','#a0a0a0','#b8b8b8','#d0d0d0','#dcdcdc','#f0f0f0'] },
-  Chaos:   { colors: [], chaos: true },
-  Gallery: { colors: ['#ff4444','#ff8800','#ffcc00','#44cc44','#00aaff','#aa44ff','#ff44aa','#44ffcc','#ff6644','#44aaff','#ffaa44','#aa44cc'] }
+  Classic:  { colors: ['#ff0000','#cc0000','#ff3333','#0078ff','#0050cc','#3399ff','#00c800','#009900','#33dd33','#ffc800','#cc9900','#ffdd44'] },
+  Ocean:    { colors: ['#002860','#00447a','#006494','#0078b4','#00a0c8','#00c8dc','#32c8dc','#64d8e8','#96e4f0','#78dcff','#aaeeff','#c8f4ff'] },
+  Fire:     { colors: ['#ff2800','#ff2800','#ff2800','#ff2800','#ff7800','#ff7800','#ff7800','#ffc800','#ffc800','#960000'], weighted: true },
+  Gold:     { colors: [], dynamic: true },
+  Greys:    { colors: ['#282828','#404040','#585858','#787878','#909090','#a0a0a0','#b8b8b8','#d0d0d0','#dcdcdc','#f0f0f0'] },
+  Chaos:    { colors: [], chaos: true },
+  Gallery:  { colors: ['#ff4444','#ff8800','#ffcc00','#44cc44','#00aaff','#aa44ff','#ff44aa','#44ffcc','#ff6644','#44aaff','#ffaa44','#aa44cc'] },
+  Sriracha: { colors: ['#88180a','#870300','#a04436','#990000','#c82010','#e03020','#ff4422','#b01800','#d42800','#ff6040'] }
 };
 
 function buildGoldPalette() {
@@ -4486,12 +4495,12 @@ document.getElementById('fileLoadData').addEventListener('change', function() {
   try { this.value = null; } catch(ex) {}
 });
 
-// BUILD v3 (ome-image-tournament-animation) — 2026-03-03
-// Cannon phase: increased particle speed (120→220) and spread (35°→55°) so
-// particles reach and cross the canvas centre. Extended particle life (0.6–1.8→0.8–2.4s).
-// Dance Ceremony defaults updated to match tuned config: Matrix theme, 300 particles,
-// 1.5× speed, Cannon 4.5s, Vortex 3.0s, Collapse 3.0s, Dance 8.0s, Shockwave 0.2s, Reveal 3.0s.
-// JS cfg() fallback defaults updated to match HTML slider defaults.
+// BUILD v4 (ome-image-tournament-animation) — 2026-03-04
+// Added Sriracha colour theme to Dance Ceremony: primary #870300, secondary #a04436,
+// burst #990000, bg #0d0100, extras [#ff4422, #c82010, #ff8060].
+// Added Sriracha confetti colour scheme: 🌶️ Deep reds & embers.
+// Refactored spawnParticle to use per-theme extras[] array — all themes now have
+// their own particle colour palette instead of shared hardcoded whites/yellows.
 
 // Resize dance canvas if active
 window.addEventListener('resize', function() {
