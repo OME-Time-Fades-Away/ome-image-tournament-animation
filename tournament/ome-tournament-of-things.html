@@ -963,7 +963,7 @@ body::before {
 
 <!-- ── Navigation ── -->
 <nav class="nav">
-  <div class="nav-title" id="navTitle" data-version="Build v28 · 2026-03-02">⚡ TOURNAMENT</div>
+  <div class="nav-title" id="navTitle" data-version="Build v29 · 2026-03-04">⚡ TOURNAMENT</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-screen="import">Players</button>
     <button class="nav-tab" data-screen="bracket">Round</button>
@@ -1137,6 +1137,7 @@ body::before {
           <option value="Greys">🌫️ Greys — Elegant monochrome</option>
           <option value="Chaos">🌈 Chaos — Fully random every piece</option>
           <option value="Gallery">🖼️ Gallery — Vivid Office-style accents</option>
+          <option value="Sriracha">🌶️ Sriracha — Deep reds &amp; embers</option>
         </select>
       </div>
 
@@ -3007,13 +3008,14 @@ var shapeLabels = {
 
 /* ── Colour themes ── */
 var THEMES = {
-  Classic: { colors: ['#ff0000','#cc0000','#ff3333','#0078ff','#0050cc','#3399ff','#00c800','#009900','#33dd33','#ffc800','#cc9900','#ffdd44'] },
-  Ocean:   { colors: ['#002860','#00447a','#006494','#0078b4','#00a0c8','#00c8dc','#32c8dc','#64d8e8','#96e4f0','#78dcff','#aaeeff','#c8f4ff'] },
-  Fire:    { colors: ['#ff2800','#ff2800','#ff2800','#ff2800','#ff7800','#ff7800','#ff7800','#ffc800','#ffc800','#960000'], weighted: true },
-  Gold:    { colors: [], dynamic: true },
-  Greys:   { colors: ['#282828','#404040','#585858','#787878','#909090','#a0a0a0','#b8b8b8','#d0d0d0','#dcdcdc','#f0f0f0'] },
-  Chaos:   { colors: [], chaos: true },
-  Gallery: { colors: ['#ff4444','#ff8800','#ffcc00','#44cc44','#00aaff','#aa44ff','#ff44aa','#44ffcc','#ff6644','#44aaff','#ffaa44','#aa44cc'] }
+  Classic:  { colors: ['#ff0000','#cc0000','#ff3333','#0078ff','#0050cc','#3399ff','#00c800','#009900','#33dd33','#ffc800','#cc9900','#ffdd44'] },
+  Ocean:    { colors: ['#002860','#00447a','#006494','#0078b4','#00a0c8','#00c8dc','#32c8dc','#64d8e8','#96e4f0','#78dcff','#aaeeff','#c8f4ff'] },
+  Fire:     { colors: ['#ff2800','#ff2800','#ff2800','#ff2800','#ff7800','#ff7800','#ff7800','#ffc800','#ffc800','#960000'], weighted: true },
+  Gold:     { colors: [], dynamic: true },
+  Greys:    { colors: ['#282828','#404040','#585858','#787878','#909090','#a0a0a0','#b8b8b8','#d0d0d0','#dcdcdc','#f0f0f0'] },
+  Chaos:    { colors: [], chaos: true },
+  Gallery:  { colors: ['#ff4444','#ff8800','#ffcc00','#44cc44','#00aaff','#aa44ff','#ff44aa','#44ffcc','#ff6644','#44aaff','#ffaa44','#aa44cc'] },
+  Sriracha: { colors: ['#88180a','#870300','#a04436','#990000','#c82010','#e03020','#ff4422','#b01800','#d42800','#ff6040'] }
 };
 
 function buildGoldPalette() {
@@ -3661,14 +3663,10 @@ document.getElementById('fileLoadData').addEventListener('change', function() {
   try { this.value = null; } catch(ex) {}
 });
 
-// BUILD v28 — 2026-03-02
-// Added photo tagging during face-off: ⭐ Favourite and 🗑 Delete buttons below
-// each Win button. Delete auto-forfeits the match. Tags show as badges on player
-// grid cards. New 📋 Review tab with two galleries (Favourites / Delete Pile),
-// ✕ untag per card, and three export options: 📤 Copy to clipboard (Favourites),
-// 📤 Copy to clipboard (Delete), 💾 Download .txt (both lists combined).
-// Platform-aware hint: Apple devices see full Shortcuts setup guide (iPhone/iPad/Mac);
-// Android and Windows see .txt download instructions. Tags included in save/load JSON.
+// BUILD v29 — 2026-03-04
+// Added Sriracha confetti colour scheme: deep reds and embers drawn from the
+// Sriracha palette RGB(136,24,10) / RGB(135,3,0) / RGB(160,68,54) / RGB(153,0,0)
+// plus brighter ember highlights for visibility. 🌶️ Sriracha — Deep reds & embers.
 </script>
 </body>
 </html>
