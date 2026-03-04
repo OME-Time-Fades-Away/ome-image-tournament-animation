@@ -27,15 +27,19 @@
 
 html {
   height: 100%;
+  height: 100dvh;
 }
 body {
   background: var(--bg);
   color: var(--text);
   font-family: 'DM Sans', sans-serif;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ── Screens ────────────────────────────────────────────── */
@@ -486,6 +490,7 @@ body {
   overflow: hidden; cursor: col-resize;
   user-select: none; touch-action: none;
   display: flex;
+  min-height: 120px; /* safety floor */
 }
 .fo-half {
   position: relative; height: 100%; overflow: hidden; flex-shrink: 0;
@@ -706,9 +711,27 @@ body {
   position: fixed; inset: 0; z-index: 400;
   background: rgba(0,0,0,0.95);
   display: none; flex-direction: column; align-items: center;
-  justify-content: center; text-align: center; padding: 40px 20px;
+  justify-content: flex-start; text-align: center;
+  padding: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 #winnerOverlay.active { display: flex; }
+#winnerOverlay .winner-scroll-body {
+  flex: 1; width: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px 20px 16px;
+  min-height: min-content;
+}
+#winnerOverlay .winner-btns {
+  flex-shrink: 0; width: 100%;
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+  padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  position: sticky; bottom: 0;
+}
 
 .winner-crown { font-size: 4em; margin-bottom: 8px; animation: crownPop 0.5s ease-out; }
 @keyframes crownPop { from { transform: scale(0) rotate(-20deg); } to { transform: scale(1) rotate(0); } }
@@ -744,7 +767,6 @@ body {
 .podium-card .place-name { font-size: 0.8em; font-weight: 600; color: var(--text); margin-top: 2px; }
 .podium-card .place-pts { font-size: 0.72em; color: var(--muted); }
 
-.winner-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .winner-btn {
   padding: 12px 28px; border-radius: 50px; cursor: pointer;
   font-family: 'DM Sans', sans-serif; font-size: 0.9em; font-weight: 700;
@@ -877,7 +899,7 @@ body {
 ══════════════════════════════════════════════════════════ */
 #confettiCanvas {
   position: fixed; inset: 0; z-index: 500; pointer-events: none;
-  width: 100%; height: 100%;
+  width: 100%; height: 100%; height: 100dvh;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -963,7 +985,7 @@ body::before {
 
 <!-- ── Navigation ── -->
 <nav class="nav">
-  <div class="nav-title" id="navTitle" data-version="Build v29 · 2026-03-04">⚡ TOURNAMENT</div>
+  <div class="nav-title" id="navTitle" data-version="Build v31 · 2026-03-04">⚡ TOURNAMENT</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-screen="import">Players</button>
     <button class="nav-tab" data-screen="bracket">Round</button>
@@ -1382,11 +1404,13 @@ body::before {
 
 <!-- ══ WINNER CEREMONY OVERLAY ══ -->
 <div id="winnerOverlay">
-  <div class="winner-crown">👑</div>
-  <div class="winner-title-big">TOURNAMENT CHAMPION!</div>
-  <div class="winner-name" id="winnerName">—</div>
-  <div class="winner-img-wrap"><img id="winnerImg" alt=""></div>
-  <div class="podium-row" id="podiumRow"></div>
+  <div class="winner-scroll-body">
+    <div class="winner-crown">👑</div>
+    <div class="winner-title-big">TOURNAMENT CHAMPION!</div>
+    <div class="winner-name" id="winnerName">—</div>
+    <div class="winner-img-wrap"><img id="winnerImg" alt=""></div>
+    <div class="podium-row" id="podiumRow"></div>
+  </div>
   <div class="winner-btns">
     <button class="winner-btn primary" id="btnNewGameW">🏆 Next Round</button>
     <button class="winner-btn secondary" id="btnReviewTagsW">📋 Review Tags</button>
@@ -2537,6 +2561,7 @@ function openFaceOff(match) {
   document.getElementById('foBtnP2').textContent      = '🏆 ' + match.p2.name + ' Wins';
 
   updateFoSlider(50);
+  foArena.style.aspectRatio = '4/3'; // reset; will be updated once images load
   foImgL.style.opacity = '0';
   foImgR.style.opacity = '0';
 
@@ -2548,6 +2573,14 @@ function openFaceOff(match) {
   function onLoaded() {
     loadCount++;
     if (loadCount >= 2) {
+      // Compute best aspect ratio from both images — use the wider (more landscape)
+      // ratio so the arena isn't too tall, while contain ensures both fit fully.
+      var arL = (foImgL.naturalWidth  && foImgL.naturalHeight)
+                ? foImgL.naturalWidth  / foImgL.naturalHeight : 4/3;
+      var arR = (foImgR.naturalWidth  && foImgR.naturalHeight)
+                ? foImgR.naturalWidth  / foImgR.naturalHeight : 4/3;
+      var ar  = Math.max(arL, arR);
+      foArena.style.aspectRatio = ar;
       foImgL.style.opacity = '1';
       foImgR.style.opacity = '1';
       updateFoSlider(foSliderPct);
@@ -2967,6 +3000,11 @@ function resizeCanvas() {
   var vv = window.visualViewport;
   canvas.width  = vv ? Math.round(vv.width)  : window.innerWidth;
   canvas.height = vv ? Math.round(vv.height) : window.innerHeight;
+  // Also match CSS so fixed canvas fills the visual viewport exactly
+  canvas.style.width  = (vv ? vv.width  : window.innerWidth)  + 'px';
+  canvas.style.height = (vv ? vv.height : window.innerHeight) + 'px';
+  canvas.style.top    = (vv ? vv.offsetTop  : 0) + 'px';
+  canvas.style.left   = (vv ? vv.offsetLeft : 0) + 'px';
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
@@ -3663,10 +3701,11 @@ document.getElementById('fileLoadData').addEventListener('change', function() {
   try { this.value = null; } catch(ex) {}
 });
 
-// BUILD v29 — 2026-03-04
-// Added Sriracha confetti colour scheme: deep reds and embers drawn from the
-// Sriracha palette RGB(136,24,10) / RGB(135,3,0) / RGB(160,68,54) / RGB(153,0,0)
-// plus brighter ember highlights for visibility. 🌶️ Sriracha — Deep reds & embers.
+// BUILD v31 — 2026-03-04
+// Image zoom fix: fo-arena aspect-ratio is now set dynamically from the loaded
+// images' natural dimensions (Math.max of both aspect ratios → most landscape).
+// Previously fixed 4/3 caused images to be cropped at 100% browser zoom.
+// Arena resets to 4/3 on each face-off open then updates once both images load.
 </script>
 </body>
 </html>
