@@ -254,9 +254,11 @@ body {
 
 /* Start tournament button */
 .btn-start-wrap {
-  position: sticky; top: 52px; z-index: 90;
-  text-align: center; padding: 10px 0 6px;
-  background: linear-gradient(var(--panel) 70%, transparent);
+  text-align: center; padding: 20px 20px 8px;
+}
+.draw-count-hint {
+  font-size: 0.85em; color: rgba(245,200,66,0.65);
+  margin-top: 8px; font-weight: 600;
 }
 .btn-start {
   padding: 18px 56px; border-radius: 50px; border: none;
@@ -1174,10 +1176,6 @@ body::before {
     </div>
   </div>
 
-  <div class="btn-start-wrap">
-    <button class="btn-start" id="btnStart" disabled>⚡ Start Tournament</button>
-  </div>
-
   <!-- Draw header -->
   <div class="draw-header" id="drawHeader" style="display:none;">
     <div class="draw-header-title">🎯 Set the Draw</div>
@@ -1254,6 +1252,11 @@ body::before {
   <div class="draw-tray-wrap" id="drawTrayWrap" style="display:none;">
     <div class="draw-tray-label">TEAMS — drag into the bracket above</div>
     <div class="draw-tray" id="drawTray"></div>
+  </div>
+
+  <!-- Start button — below the tray so it never blocks drop targets -->
+  <div class="btn-start-wrap" id="btnStartWrap" style="display:none;">
+    <button class="btn-start" id="btnStart" disabled>⚡ Start Tournament</button>
   </div>
 
 </div>
@@ -2081,9 +2084,10 @@ function renderDraw() {
   var total = trayPlayers.length + bracketSlots.filter(Boolean).length;
   var hasAny = total > 0;
 
-  document.getElementById('drawHeader').style.display  = hasAny ? 'flex'  : 'none';
-  document.getElementById('drawBracket').style.display = hasAny ? 'block' : 'none';
+  document.getElementById('drawHeader').style.display   = hasAny ? 'flex'  : 'none';
+  document.getElementById('drawBracket').style.display  = hasAny ? 'block' : 'none';
   document.getElementById('drawTrayWrap').style.display = hasAny ? 'block' : 'none';
+  document.getElementById('btnStartWrap').style.display = hasAny ? 'block' : 'none';
 
   // ── Render bracket slots ──
   document.querySelectorAll('.draw-slot').forEach(function(slot) {
