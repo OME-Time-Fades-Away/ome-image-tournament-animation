@@ -462,70 +462,71 @@ body {
 }
 .trophy-icon { font-size: 2em; text-align: center; margin-top: 8px; }
 
-/* ── Draw Layout ── */
+/* ── Draw Header ── */
 .draw-header {
   display: flex; align-items: center; flex-wrap: wrap;
-  gap: 10px; padding: 16px 20px 8px;
-  max-width: 900px; margin: 0 auto;
+  gap: 10px; padding: 12px 20px 6px;
+  max-width: 1000px; margin: 0 auto;
 }
 .draw-header-title {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.6em; letter-spacing: 0.1em; color: var(--gold);
-  flex: 1;
+  font-size: 1.4em; letter-spacing: 0.1em; color: var(--gold); flex: 1;
 }
 .draw-header-sub {
-  font-size: 0.9em; color: rgba(232,232,240,0.5);
-  width: 100%;
+  font-size: 0.82em; color: rgba(232,232,240,0.5); width: 100%;
 }
-.draw-layout {
-  display: flex; gap: 16px; padding: 12px 16px 32px;
-  max-width: 900px; margin: 0 auto;
-  flex-wrap: wrap;
+
+/* ── Bracket diagram ── */
+.draw-bracket {
+  width: 100%; overflow-x: auto; padding: 12px 12px 8px;
+  -webkit-overflow-scrolling: touch;
 }
-.draw-half {
-  flex: 1; min-width: 300px;
+.draw-bracket-inner {
+  display: flex; align-items: flex-start; gap: 8px;
+  min-width: 680px; max-width: 1000px; margin: 0 auto;
+}
+.draw-col { display: flex; flex-direction: column; gap: 10px; }
+.draw-col-qf-left, .draw-col-qf-right { flex: 2.2; }
+.draw-col-sf   { flex: 1.2; }
+.draw-col-final { flex: 1.4; }
+.draw-qf-label {
+  font-family: 'Bebas Neue', sans-serif; font-size: 0.82em;
+  letter-spacing: 0.18em; color: rgba(245,200,66,0.55);
+  text-align: center; padding-bottom: 4px;
+}
+.final-label { color: var(--gold); font-size: 0.95em; }
+.draw-match-block {
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 16px;
-  padding: 18px 16px 22px;
-  display: flex; flex-direction: column; gap: 10px;
+  border-radius: 14px; padding: 10px 10px 8px;
+  display: flex; flex-direction: column; gap: 6px;
 }
-.draw-half-label {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.05em; letter-spacing: 0.15em;
-  color: rgba(245,200,66,0.6); text-align: center;
-  margin-bottom: 4px;
-}
-.draw-matchup { display: flex; align-items: center; gap: 10px; }
-.draw-vs {
-  font-family: 'Bebas Neue', sans-serif; font-size: 1.4em;
-  color: rgba(255,255,255,0.35); flex-shrink: 0;
-}
-.draw-arrow {
-  font-size: 0.82em; color: rgba(255,255,255,0.25); text-align: center;
-  padding: 2px 0;
-}
-.draw-sf-label {
-  font-size: 0.82em; color: rgba(245,200,66,0.5);
-  text-align: center; font-weight: 600; letter-spacing: 0.04em;
+.draw-play-hint {
+  background: none; border: 1px dashed rgba(255,255,255,0.1);
+  border-radius: 8px; color: rgba(255,255,255,0.2);
+  font-size: 0.72em; padding: 5px 8px; cursor: default;
+  font-family: 'DM Sans', sans-serif; text-align: center; margin-top: 2px;
 }
 .draw-slot {
-  flex: 1; min-height: 86px;
+  width: 100%; min-height: 70px;
   border: 2px dashed rgba(255,255,255,0.15);
-  border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  display: flex; align-items: center;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
   position: relative; overflow: hidden;
+  background: rgba(0,0,0,0.15);
 }
-.draw-slot::after { content: 'Empty'; font-size: 0.9em; color: rgba(255,255,255,0.2); }
+.draw-slot::after {
+  content: attr(data-num);
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.6em;
+  color: rgba(255,255,255,0.1); width: 100%; text-align: center;
+}
 .draw-slot.filled::after { content: ''; }
 .draw-slot.filled {
-  border: 2px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  cursor: grab;
-  touch-action: none;   /* prevent scroll hijack during pointer drag */
-  user-select: none;
-  -webkit-user-select: none;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05);
+  cursor: grab; touch-action: none;
+  user-select: none; -webkit-user-select: none;
 }
 .draw-slot.filled:active { cursor: grabbing; }
 .draw-slot.drag-over {
@@ -535,42 +536,84 @@ body {
 }
 .draw-slot.dragging-source { opacity: 0.28; border-style: dashed; }
 .draw-slot-inner {
-  width: 100%; min-height: 86px;
-  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
-}
-.draw-slot-num {
-  font-family: 'Bebas Neue', sans-serif; font-size: 1.8em;
-  color: rgba(245,200,66,0.5); flex-shrink: 0; width: 26px; text-align: center;
+  width: 100%; min-height: 70px;
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
 }
 .draw-slot-img {
-  width: 60px; height: 60px; object-fit: cover;
+  width: 48px; height: 48px; object-fit: cover;
   border-radius: 8px; flex-shrink: 0;
 }
 .draw-slot-name {
-  flex: 1; font-size: 1.05em; font-weight: 600; color: var(--text);
+  flex: 1; font-size: 0.88em; font-weight: 600; color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  line-height: 1.3;
 }
 .draw-slot-remove {
   background: none; border: none;
-  color: rgba(255,255,255,0.3); font-size: 1.3em;
-  cursor: pointer; padding: 6px 10px; border-radius: 6px;
+  color: rgba(255,255,255,0.25); font-size: 1.1em;
+  cursor: pointer; padding: 4px 6px; border-radius: 4px;
   transition: color 0.15s; flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  min-width: 44px; min-height: 44px;
+  min-width: 32px; min-height: 32px;
   display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
 .draw-slot-remove:hover, .draw-slot-remove:active { color: var(--red); }
+.draw-awaiting {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 12px 10px;
+  display: flex; flex-direction: column; gap: 8px; margin-top: 4px;
+}
+.draw-awaiting-final { margin-top: 0; }
+.draw-await-line {
+  font-style: italic; font-size: 0.78em;
+  color: rgba(255,255,255,0.2); text-align: center;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.draw-await-line:last-child { border-bottom: none; }
+
+/* ── Player tray ── */
+.draw-tray-wrap {
+  max-width: 1000px; margin: 16px auto 0; padding: 0 12px 32px;
+}
+.draw-tray-label {
+  font-family: 'Bebas Neue', sans-serif; font-size: 0.85em;
+  letter-spacing: 0.16em; color: rgba(245,200,66,0.5);
+  text-align: center; margin-bottom: 10px;
+}
+.draw-tray {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+}
+.tray-card {
+  width: 110px;
+  background: var(--surface2);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: grab; touch-action: none;
+  user-select: none; -webkit-user-select: none;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.tray-card:active { cursor: grabbing; }
+.tray-card.dragging-source { opacity: 0.3; }
+.tray-card.drag-over { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(245,200,66,0.2); }
+.tray-card-img {
+  width: 72px; height: 72px; object-fit: cover; border-radius: 8px;
+}
+.tray-card-name {
+  font-size: 0.72em; font-weight: 600; color: var(--text);
+  text-align: center; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; width: 100%; padding: 0 2px;
+}
 .touch-drag-ghost {
   position: fixed; z-index: 9999; pointer-events: none;
   background: var(--surface2); border: 2px solid var(--gold);
-  border-radius: 12px; padding: 12px 18px;
-  font-size: 1.05em; font-weight: 600; color: var(--text);
-  display: flex; align-items: center; gap: 12px;
+  border-radius: 12px; padding: 10px 14px;
+  font-size: 0.95em; font-weight: 600; color: var(--text);
+  display: flex; align-items: center; gap: 10px;
   opacity: 0.95; transform: translate(-50%, -50%); white-space: nowrap;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
-.touch-drag-ghost img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; }
+.touch-drag-ghost img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
 
 /* ══════════════════════════════════════════════════════════
    FACE-OFF OVERLAY (carried over from Face-Off app)
@@ -1095,7 +1138,7 @@ body::before {
 
 <!-- ── Navigation ── -->
 <nav class="nav">
-  <div class="nav-title" id="navTitle" data-version="Build v4 · 2026-03-04">⚡ QUARTER FINALS</div>
+  <div class="nav-title" id="navTitle" data-version="Build v5 · 2026-03-04">⚡ QUARTER FINALS</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-screen="import">Players</button>
     <button class="nav-tab" data-screen="bracket">Round</button>
@@ -1135,51 +1178,82 @@ body::before {
     <button class="btn-start" id="btnStart" disabled>⚡ Start Tournament</button>
   </div>
 
-  <!-- Seeded draw slots -->
+  <!-- Draw header -->
   <div class="draw-header" id="drawHeader" style="display:none;">
     <div class="draw-header-title">🎯 Set the Draw</div>
-    <div class="draw-header-sub">Drag players to set who plays who · order determines the bracket</div>
+    <div class="draw-header-sub">Drag teams from the tray into the bracket · drag between slots to swap</div>
     <button class="btn-clear" id="btnClear">✕ Clear All</button>
   </div>
 
-  <div class="draw-layout" id="drawLayout" style="display:none;">
+  <!-- Bracket diagram with drop targets -->
+  <div class="draw-bracket" id="drawBracket" style="display:none;">
 
-    <!-- Left half of draw -->
-    <div class="draw-half">
-      <div class="draw-half-label">LEFT SIDE</div>
-      <div class="draw-matchup">
-        <div class="draw-slot" data-slot="0"></div>
-        <div class="draw-vs">v</div>
-        <div class="draw-slot" data-slot="1"></div>
+    <div class="draw-bracket-inner">
+
+      <!-- QF Left -->
+      <div class="draw-col draw-col-qf-left">
+        <div class="draw-qf-label">QUARTER</div>
+        <div class="draw-match-block">
+          <div class="draw-slot" data-slot="0" data-num="1"></div>
+          <div class="draw-slot" data-slot="1" data-num="2"></div>
+          <button class="draw-play-hint">▶ Play Match</button>
+        </div>
+        <div class="draw-match-block">
+          <div class="draw-slot" data-slot="2" data-num="3"></div>
+          <div class="draw-slot" data-slot="3" data-num="4"></div>
+          <button class="draw-play-hint">▶ Play Match</button>
+        </div>
       </div>
-      <div class="draw-arrow">↓ QF1 winner advances</div>
-      <div class="draw-matchup">
-        <div class="draw-slot" data-slot="2"></div>
-        <div class="draw-vs">v</div>
-        <div class="draw-slot" data-slot="3"></div>
+
+      <!-- SF Left -->
+      <div class="draw-col draw-col-sf">
+        <div class="draw-qf-label">SEMI</div>
+        <div class="draw-awaiting">
+          <div class="draw-await-line">— awaiting —</div>
+          <div class="draw-await-line">— awaiting —</div>
+        </div>
       </div>
-      <div class="draw-arrow">↓ QF2 winner advances</div>
-      <div class="draw-sf-label">Semi Final → Final</div>
+
+      <!-- Final -->
+      <div class="draw-col draw-col-final">
+        <div class="draw-qf-label final-label">⚡ FINAL ⚡</div>
+        <div class="draw-awaiting draw-awaiting-final">
+          <div class="draw-await-line">— awaiting —</div>
+          <div class="draw-await-line">— awaiting —</div>
+        </div>
+      </div>
+
+      <!-- SF Right -->
+      <div class="draw-col draw-col-sf">
+        <div class="draw-qf-label">SEMI</div>
+        <div class="draw-awaiting">
+          <div class="draw-await-line">— awaiting —</div>
+          <div class="draw-await-line">— awaiting —</div>
+        </div>
+      </div>
+
+      <!-- QF Right -->
+      <div class="draw-col draw-col-qf-right">
+        <div class="draw-qf-label">QUARTER</div>
+        <div class="draw-match-block">
+          <div class="draw-slot" data-slot="4" data-num="5"></div>
+          <div class="draw-slot" data-slot="5" data-num="6"></div>
+          <button class="draw-play-hint">▶ Play Match</button>
+        </div>
+        <div class="draw-match-block">
+          <div class="draw-slot" data-slot="6" data-num="7"></div>
+          <div class="draw-slot" data-slot="7" data-num="8"></div>
+          <button class="draw-play-hint">▶ Play Match</button>
+        </div>
+      </div>
+
     </div>
+  </div>
 
-    <!-- Right half of draw -->
-    <div class="draw-half">
-      <div class="draw-half-label">RIGHT SIDE</div>
-      <div class="draw-matchup">
-        <div class="draw-slot" data-slot="4"></div>
-        <div class="draw-vs">v</div>
-        <div class="draw-slot" data-slot="5"></div>
-      </div>
-      <div class="draw-arrow">↓ QF3 winner advances</div>
-      <div class="draw-matchup">
-        <div class="draw-slot" data-slot="6"></div>
-        <div class="draw-vs">v</div>
-        <div class="draw-slot" data-slot="7"></div>
-      </div>
-      <div class="draw-arrow">↓ QF4 winner advances</div>
-      <div class="draw-sf-label">Semi Final → Final</div>
-    </div>
-
+  <!-- Player tray — unplaced teams -->
+  <div class="draw-tray-wrap" id="drawTrayWrap" style="display:none;">
+    <div class="draw-tray-label">TEAMS — drag into the bracket above</div>
+    <div class="draw-tray" id="drawTray"></div>
   </div>
 
 </div>
@@ -1705,7 +1779,9 @@ function readCaption(buffer) {
   // IPTC Caption-Abstract preferred, EXIF ImageDescription as fallback
   var caption = iptcCaption || exifCaption;
   if (caption) {
-    caption = caption.replace(/\0/g, '').trim(); // strip null terminators
+    caption = caption.replace(/\0/g, '').trim();
+    // Reject iOS auto-captions — "Screenshot", "Screenshot (2)" etc.
+    if (/^screenshot(\s*\(\d+\))?$/i.test(caption)) return null;
     if (caption.length > 0 && caption.length <= 80) return caption;
     if (caption.length > 80) return caption.slice(0, 80).trim();
   }
@@ -1822,7 +1898,7 @@ function loadFiles(files) {
     setTimeout(function() {
       if (drop) drop.classList.remove('loading');
     }, 1000);
-    renderDrawSlots();
+    populateTrayFromImport();
     // GPU warmup: attach tiny visible imgs to DOM so Safari composites them
     allPlayers.forEach(function(p) {
       if (p._cached) return;
@@ -1952,9 +2028,10 @@ function loadFiles(files) {
 } // end loadFiles
 
 document.getElementById('btnClear').addEventListener('click', function() {
-  allPlayers = []; tournament = null;
-  leagueRound = 0;
-  renderDrawSlots(); updateGameButton();
+  allPlayers = []; tournament = null; leagueRound = 0;
+  bracketSlots = [null,null,null,null,null,null,null,null];
+  trayPlayers  = [];
+  renderDraw(); updateGameButton();
   custSaveToLocalStorage();
 });
 
@@ -1962,185 +2039,264 @@ document.getElementById('btnClear').addEventListener('click', function() {
 
 var dragSrcIdx = null;   // kept for compatibility — pointer events now used
 
+/* ══════════════════════════════════════════════════════════
+   DRAW — Tray + Bracket system
+   allPlayers[0..7] = bracket slots (null = empty)
+   trayPlayers      = unplaced teams (imported but not yet dropped)
+══════════════════════════════════════════════════════════ */
+
+// bracketSlots[0..7]: player object or null
+var bracketSlots = [null,null,null,null,null,null,null,null];
+// trayPlayers: array of player objects not yet placed
+var trayPlayers  = [];
+
+// Called after import — populate tray with all imported players
 function renderDrawSlots() {
-  var slots = document.querySelectorAll('.draw-slot');
-  var hasAny = allPlayers.length > 0;
-  var drawHeader = document.getElementById('drawHeader');
-  var drawLayout = document.getElementById('drawLayout');
-
-  drawHeader.style.display = hasAny ? 'flex' : 'none';
-  drawLayout.style.display = hasAny ? 'flex' : 'none';
-
-  slots.forEach(function(slot, i) {
-    var p = allPlayers[i];
-    slot.setAttribute('draggable', 'false'); // pointer events handle drag — no native drag
-    slot.classList.toggle('filled', !!p);
-    slot.classList.remove('drag-over', 'dragging-source');
-
-    if (p) {
-      slot.innerHTML =
-        '<div class="draw-slot-inner">' +
-          '<div class="draw-slot-num">' + (i + 1) + '</div>' +
-          '<img class="draw-slot-img" src="' + p.img + '" alt="' + p.name + '">' +
-          '<div class="draw-slot-name">' + p.name + '</div>' +
-          '<button class="draw-slot-remove" data-idx="' + i + '" title="Remove">✕</button>' +
-        '</div>';
-      slot.setAttribute('draggable', 'true');
-    } else {
-      slot.innerHTML = '';  // ::after CSS shows "Empty"
-      slot.setAttribute('draggable', 'false');
-    }
+  // Sync from allPlayers (for save/load compatibility):
+  // allPlayers holds placed players in slot order; rebuild bracket+tray
+  // This is only called directly from save/load restore paths.
+  // Normal flow uses renderDraw() directly.
+  bracketSlots = [null,null,null,null,null,null,null,null];
+  trayPlayers  = [];
+  allPlayers.forEach(function(p, i) {
+    if (i < 8) bracketSlots[i] = p;
   });
-
-  // Start button — only enable when all 8 slots filled
-  document.getElementById('btnStart').disabled = allPlayers.length < 8;
-  if (allPlayers.length > 0 && allPlayers.length < 8) {
-    document.getElementById('btnStart').disabled = true;
-    // Show count hint inside btn-start-wrap if not already there
-    var wrap = document.querySelector('.btn-start-wrap');
-    var hint = wrap.querySelector('.draw-count-hint');
-    if (!hint) { hint = document.createElement('div'); hint.className = 'draw-count-hint'; wrap.appendChild(hint); }
-    hint.textContent = allPlayers.length + ' of 8 players imported';
-  } else {
-    var wrap = document.querySelector('.btn-start-wrap');
-    var hint = wrap ? wrap.querySelector('.draw-count-hint') : null;
-    if (hint) hint.textContent = allPlayers.length === 8 ? '✓ Draw set — ready to start' : '';
-  }
-
-  wireDrawSlotEvents();
+  renderDraw();
 }
 
-/* ── Pointer drag state — module-level so it survives DOM rebuilds ── */
-var pdSrcIdx = null;
-var pdGhost  = null;
-var pdOffX   = 0;
-var pdOffY   = 0;
+// Called on fresh import — put all players in tray, clear bracket
+function populateTrayFromImport() {
+  bracketSlots = [null,null,null,null,null,null,null,null];
+  trayPlayers  = allPlayers.slice();
+  allPlayers   = [];
+  renderDraw();
+}
 
-function pdCreateGhost(idx, clientX, clientY, slotEl) {
+function syncAllPlayersFromBracket() {
+  // allPlayers = bracket slots in order (used by tournament engine)
+  allPlayers = bracketSlots.map(function(p) { return p || null; }).filter(Boolean);
+}
+
+function renderDraw() {
+  var total = trayPlayers.length + bracketSlots.filter(Boolean).length;
+  var hasAny = total > 0;
+
+  document.getElementById('drawHeader').style.display  = hasAny ? 'flex'  : 'none';
+  document.getElementById('drawBracket').style.display = hasAny ? 'block' : 'none';
+  document.getElementById('drawTrayWrap').style.display = hasAny ? 'block' : 'none';
+
+  // ── Render bracket slots ──
+  document.querySelectorAll('.draw-slot').forEach(function(slot) {
+    var i = parseInt(slot.dataset.slot);
+    var p = bracketSlots[i];
+    slot.setAttribute('draggable', 'false');
+    slot.classList.toggle('filled', !!p);
+    slot.classList.remove('drag-over', 'dragging-source');
+    slot.innerHTML = p ?
+      '<div class="draw-slot-inner">' +
+        '<img class="draw-slot-img" src="' + p.img + '" alt="' + p.name + '">' +
+        '<div class="draw-slot-name">' + p.name + '</div>' +
+        '<button class="draw-slot-remove" data-slot="' + i + '" title="Remove">✕</button>' +
+      '</div>' : '';
+  });
+
+  // ── Render tray ──
+  var tray = document.getElementById('drawTray');
+  tray.innerHTML = '';
+  trayPlayers.forEach(function(p, ti) {
+    var card = document.createElement('div');
+    card.className = 'tray-card';
+    card.dataset.tray = ti;
+    card.innerHTML =
+      '<img class="tray-card-img" src="' + p.img + '" alt="' + p.name + '">' +
+      '<div class="tray-card-name">' + p.name + '</div>';
+    tray.appendChild(card);
+  });
+
+  // Start button — only when all 8 bracket slots filled and tray empty
+  var placed = bracketSlots.filter(Boolean).length;
+  document.getElementById('btnStart').disabled = placed < 8;
+
+  // Hint
+  var wrap = document.querySelector('.btn-start-wrap');
+  var hint = wrap.querySelector('.draw-count-hint');
+  if (!hint) { hint = document.createElement('div'); hint.className = 'draw-count-hint'; wrap.appendChild(hint); }
+  if (placed === 8) {
+    hint.textContent = '✓ All 8 placed — ready to start';
+  } else if (placed > 0 || trayPlayers.length > 0) {
+    hint.textContent = placed + ' of 8 placed — drag teams into the bracket';
+  } else {
+    hint.textContent = '';
+  }
+
+  wireDragEvents();
+}
+
+/* ── Pointer drag state — module-level ── */
+var pdSrcIdx   = null;  // slot index (bracket) or null
+var pdSrcTray  = null;  // tray index or null
+var pdGhost    = null;
+var pdOffX     = 0;
+var pdOffY     = 0;
+
+function pdCreateGhost(p, clientX, clientY, el) {
   if (pdGhost) { pdGhost.remove(); pdGhost = null; }
-  var p = allPlayers[idx];
   pdGhost = document.createElement('div');
   pdGhost.className = 'touch-drag-ghost';
   pdGhost.innerHTML = '<img src="' + p.img + '"><span>' + p.name + '</span>';
   document.body.appendChild(pdGhost);
-  var r = slotEl.getBoundingClientRect();
+  var r = el.getBoundingClientRect();
   pdOffX = clientX - (r.left + r.width  / 2);
   pdOffY = clientY - (r.top  + r.height / 2);
   pdMoveGhost(clientX, clientY);
 }
 
-function pdMoveGhost(clientX, clientY) {
+function pdMoveGhost(x, y) {
   if (!pdGhost) return;
-  pdGhost.style.left = (clientX - pdOffX) + 'px';
-  pdGhost.style.top  = (clientY - pdOffY) + 'px';
+  pdGhost.style.left = (x - pdOffX) + 'px';
+  pdGhost.style.top  = (y - pdOffY) + 'px';
 }
 
-function pdSlotFromPoint(clientX, clientY) {
+function pdTargetAt(x, y) {
   if (pdGhost) pdGhost.style.display = 'none';
-  var el = document.elementFromPoint(clientX, clientY);
+  var el = document.elementFromPoint(x, y);
   if (pdGhost) pdGhost.style.display = '';
-  return el ? el.closest('.draw-slot') : null;
+  if (!el) return null;
+  var slot = el.closest('.draw-slot');
+  if (slot) return { type: 'slot', idx: parseInt(slot.dataset.slot), el: slot };
+  var card = el.closest('.tray-card');
+  if (card) return { type: 'tray', idx: parseInt(card.dataset.tray), el: card };
+  // Allow dropping on the tray container itself (empty tray area)
+  var tray = el.closest('#drawTray');
+  if (tray) return { type: 'tray-drop', el: tray };
+  return null;
 }
 
 function pdCleanup() {
   if (pdGhost) { pdGhost.remove(); pdGhost = null; }
-  document.querySelectorAll('.draw-slot').forEach(function(s) {
-    s.classList.remove('drag-over', 'dragging-source');
-    s.style.cursor = '';
+  document.querySelectorAll('.draw-slot, .tray-card').forEach(function(el) {
+    el.classList.remove('drag-over', 'dragging-source');
   });
-  pdSrcIdx = null;
+  pdSrcIdx = null; pdSrcTray = null;
 }
 
-function wireDrawSlotEvents() {
-  // Remove button
+function wireDragEvents() {
+  // ── Remove button on bracket slots ──
   document.querySelectorAll('.draw-slot-remove').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      var idx = parseInt(this.dataset.idx);
-      allPlayers.splice(idx, 1);
-      renderDrawSlots();
+      var i = parseInt(this.dataset.slot);
+      var p = bracketSlots[i];
+      if (p) { trayPlayers.push(p); bracketSlots[i] = null; }
+      syncAllPlayersFromBracket();
       custSaveToLocalStorage();
+      renderDraw();
     });
   });
 
-  var slots = document.querySelectorAll('.draw-slot');
-
-  // ── Pointer-event drag (mouse + touch + iPad Chrome) ──────────────
-  // We avoid the HTML5 drag API entirely — it produces uncontrollable
-  // ghost clones on Chrome iPad. Pointer events give us full control.
-  // All drag state lives at module scope so it survives renderDrawSlots()
-  // rebuilding the DOM between drags.
-
-  slots.forEach(function(slot, i) {
-    // Disable native drag so the browser never spawns its own ghost
-    slot.setAttribute('draggable', 'false');
+  // ── Bracket slots — pointer events ──
+  document.querySelectorAll('.draw-slot').forEach(function(slot) {
+    var i = parseInt(slot.dataset.slot);
 
     slot.addEventListener('pointerdown', function(e) {
-      if (!allPlayers[i]) return;
+      if (!bracketSlots[i]) return;
       if (e.target.closest('.draw-slot-remove')) return;
       e.preventDefault();
       slot.setPointerCapture(e.pointerId);
-      pdSrcIdx = i;
+      pdSrcIdx = i; pdSrcTray = null;
       slot.classList.add('dragging-source');
-      pdCreateGhost(i, e.clientX, e.clientY, slot);
+      pdCreateGhost(bracketSlots[i], e.clientX, e.clientY, slot);
     });
 
     slot.addEventListener('pointermove', function(e) {
-      if (pdSrcIdx === null || pdSrcIdx !== i) return;
+      if (pdSrcIdx !== i) return;
       e.preventDefault();
       pdMoveGhost(e.clientX, e.clientY);
-      var target = pdSlotFromPoint(e.clientX, e.clientY);
-      document.querySelectorAll('.draw-slot').forEach(function(s) {
-        s.classList.toggle('drag-over', s === target && target !== slot);
-      });
+      var t = pdTargetAt(e.clientX, e.clientY);
+      document.querySelectorAll('.draw-slot, .tray-card').forEach(function(el) { el.classList.remove('drag-over'); });
+      if (t && t.el !== slot) t.el.classList.add('drag-over');
     });
 
     slot.addEventListener('pointerup', function(e) {
-      if (pdSrcIdx === null || pdSrcIdx !== i) return;
+      if (pdSrcIdx !== i) return;
       var srcIdx = pdSrcIdx;
-      var target = pdSlotFromPoint(e.clientX, e.clientY);
+      var t = pdTargetAt(e.clientX, e.clientY);
       pdCleanup();
-      if (target) {
-        var destIdx = parseInt(target.dataset.slot);
-        if (!isNaN(destIdx) && destIdx !== srcIdx) {
-          swapSlots(srcIdx, destIdx);
-        }
+      if (!t) return;
+      if (t.type === 'slot' && t.idx !== srcIdx) {
+        // Swap two bracket slots
+        var tmp = bracketSlots[srcIdx];
+        bracketSlots[srcIdx] = bracketSlots[t.idx];
+        bracketSlots[t.idx]  = tmp;
+      } else if (t.type === 'tray' || t.type === 'tray-drop') {
+        // Return to tray
+        trayPlayers.push(bracketSlots[srcIdx]);
+        bracketSlots[srcIdx] = null;
       }
+      syncAllPlayersFromBracket();
+      custSaveToLocalStorage();
+      renderDraw();
     });
 
-    slot.addEventListener('pointercancel', function() {
-      pdCleanup();
+    slot.addEventListener('pointercancel', pdCleanup);
+  });
+
+  // ── Tray cards — pointer events ──
+  document.querySelectorAll('.tray-card').forEach(function(card) {
+    var ti = parseInt(card.dataset.tray);
+
+    card.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      card.setPointerCapture(e.pointerId);
+      pdSrcTray = ti; pdSrcIdx = null;
+      card.classList.add('dragging-source');
+      pdCreateGhost(trayPlayers[ti], e.clientX, e.clientY, card);
     });
+
+    card.addEventListener('pointermove', function(e) {
+      if (pdSrcTray !== ti) return;
+      e.preventDefault();
+      pdMoveGhost(e.clientX, e.clientY);
+      var t = pdTargetAt(e.clientX, e.clientY);
+      document.querySelectorAll('.draw-slot, .tray-card').forEach(function(el) { el.classList.remove('drag-over'); });
+      if (t && t.el !== card) t.el.classList.add('drag-over');
+    });
+
+    card.addEventListener('pointerup', function(e) {
+      if (pdSrcTray !== ti) return;
+      var srcTi = pdSrcTray;
+      var t = pdTargetAt(e.clientX, e.clientY);
+      pdCleanup();
+      if (!t) return;
+      var p = trayPlayers[srcTi];
+      if (t.type === 'slot') {
+        // Place into bracket slot
+        if (bracketSlots[t.idx]) {
+          // Slot already occupied — swap: occupied goes to tray
+          trayPlayers.splice(srcTi, 1, bracketSlots[t.idx]);
+        } else {
+          trayPlayers.splice(srcTi, 1);
+        }
+        bracketSlots[t.idx] = p;
+      } else if (t.type === 'tray' && t.idx !== srcTi) {
+        // Reorder within tray
+        trayPlayers.splice(srcTi, 1);
+        var insertAt = t.idx > srcTi ? t.idx - 1 : t.idx;
+        trayPlayers.splice(insertAt, 0, p);
+      }
+      // tray-drop: drop on empty tray area — no-op, stays in tray
+      syncAllPlayersFromBracket();
+      custSaveToLocalStorage();
+      renderDraw();
+    });
+
+    card.addEventListener('pointercancel', pdCleanup);
   });
 }
 
-function swapSlots(a, b) {
-  // If both filled: swap
-  // If b is empty and a is filled: move a to b
-  var pa = allPlayers[a] || null;
-  var pb = allPlayers[b] || null;
-  if (!pa) return; // can't drag from empty
-  if (pb) {
-    allPlayers[a] = pb;
-    allPlayers[b] = pa;
-  } else {
-    // Move to empty slot — compact to fill the gap
-    allPlayers.splice(b, 0, pa);
-    var removeIdx = a < b ? a : a + 1;
-    allPlayers.splice(removeIdx, 1);
-  }
-  renderDrawSlots();
-  custSaveToLocalStorage();
-}
-
 /* ── updateSizeButtons is a no-op in this edition ── */
-function updateSizeButtons() {
-  // Fixed 4v4 — no size buttons
-  activeTSize = 4;
-}
-function renderPlayerGrid() {
-  renderDrawSlots(); // alias for save/load compatibility
-}
+function updateSizeButtons() { activeTSize = 4; }
+function renderPlayerGrid() { renderDraw(); }
 
 /* ══════════════════════════════════════════════════════════
    TOURNAMENT GENERATION
@@ -2164,8 +2320,8 @@ function startTournament() {
   tournament.status = 'active';
   updateGameButton();
 
-  // Use allPlayers in slot order — no shuffle
-  var selected = allPlayers.slice(0, 8);
+  // Use bracketSlots in draw order — no shuffle
+  var selected = bracketSlots.slice(0, 8);
   var leftPlayers  = selected.slice(0, 4);
   var rightPlayers = selected.slice(4, 8);
 
@@ -3783,9 +3939,17 @@ var LS_KEY = 'ome-tournament-of-things-v1';
 
 function buildSaveData() {
   return {
-    version: 1,
+    version: 2,
     saved: new Date().toISOString(),
     players: allPlayers.map(function(p) {
+      return { id: p.id, name: p.name, points: p.points, img: p.img,
+               favourite: !!p.favourite, deleted: !!p.deleted };
+    }),
+    bracketSlots: bracketSlots.map(function(p) {
+      return p ? { id: p.id, name: p.name, points: p.points, img: p.img,
+                   favourite: !!p.favourite, deleted: !!p.deleted } : null;
+    }),
+    trayPlayers: trayPlayers.map(function(p) {
       return { id: p.id, name: p.name, points: p.points, img: p.img,
                favourite: !!p.favourite, deleted: !!p.deleted };
     }),
@@ -3807,23 +3971,35 @@ function buildSaveData() {
   };
 }
 
+function restorePlayer(p) {
+  return { id: p.id, name: p.name, points: p.points || 0, img: p.img,
+           favourite: !!p.favourite, deleted: !!p.deleted };
+}
+
 function applySaveData(data) {
-  if (!data || data.version !== 1) return false;
-  // Players
-  allPlayers = (data.players || []).map(function(p) {
-    return { id: p.id, name: p.name, points: p.points || 0, img: p.img,
-             favourite: !!p.favourite, deleted: !!p.deleted };
-  });
+  if (!data || (data.version !== 1 && data.version !== 2)) return false;
   leagueRound = data.leagueRound || 0;
-  activeTSize = 4; // always fixed in this edition
-  // Emoji sets
+  activeTSize = 4;
+
+  if (data.version === 2 && data.bracketSlots) {
+    // New format — restore bracket and tray directly
+    bracketSlots = data.bracketSlots.map(function(p) { return p ? restorePlayer(p) : null; });
+    trayPlayers  = (data.trayPlayers || []).map(restorePlayer);
+    syncAllPlayersFromBracket();
+  } else {
+    // v1 legacy — put all players in bracket in order
+    allPlayers   = (data.players || []).map(restorePlayer);
+    bracketSlots = [null,null,null,null,null,null,null,null];
+    allPlayers.forEach(function(p, i) { if (i < 8) bracketSlots[i] = p; });
+    trayPlayers  = [];
+  }
+
   if (data.emojiSets) {
     if (data.emojiSets.party)       customEmojiSets.party       = data.emojiSets.party;
     if (data.emojiSets.celebration) customEmojiSets.celebration = data.emojiSets.celebration;
     if (data.emojiSets.nature)      customEmojiSets.nature      = data.emojiSets.nature;
     syncEmojiSets();
   }
-  // Confetti
   if (data.confetti) {
     var c = data.confetti;
     if (c.speed   !== undefined) confettiSpeed  = c.speed;
@@ -3832,14 +4008,12 @@ function applySaveData(data) {
     if (c.shape)                 confettiShape  = c.shape;
     if (c.wind    !== undefined) beaufortForce  = c.wind;
     if (c.starSize!== undefined) starBaseSize   = c.starSize;
-    // Sync UI sliders
     var cfgSpeed = document.getElementById('cfgSpeed');
     if (cfgSpeed) { cfgSpeed.value = Math.round(confettiSpeed * 10); document.getElementById('cfgSpeedVal').textContent = confettiSpeed.toFixed(1)+'×'; }
     var cfgCount = document.getElementById('cfgCount');
     if (cfgCount) { cfgCount.value = confettiCount; document.getElementById('cfgCountVal').textContent = confettiCount; }
   }
-  // Re-render
-  renderPlayerGrid();
+  renderDraw();
   updateSizeButtons();
   updateGameButton();
   return true;
