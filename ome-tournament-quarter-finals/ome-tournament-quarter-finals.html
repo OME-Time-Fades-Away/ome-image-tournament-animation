@@ -523,6 +523,9 @@ body {
   border: 2px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.04);
   cursor: grab;
+  touch-action: none;   /* prevent scroll hijack during pointer drag */
+  user-select: none;
+  -webkit-user-select: none;
 }
 .draw-slot.filled:active { cursor: grabbing; }
 .draw-slot.drag-over {
@@ -1092,7 +1095,7 @@ body::before {
 
 <!-- ── Navigation ── -->
 <nav class="nav">
-  <div class="nav-title" id="navTitle" data-version="Build v2 · 2026-03-04">⚡ QUARTER FINALS</div>
+  <div class="nav-title" id="navTitle" data-version="Build v4 · 2026-03-04">⚡ QUARTER FINALS</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-screen="import">Players</button>
     <button class="nav-tab" data-screen="bracket">Round</button>
@@ -1957,9 +1960,7 @@ document.getElementById('btnClear').addEventListener('click', function() {
 
 /* ── Draw Slot Rendering & Drag-and-Drop ── */
 
-var dragSrcIdx = null;   // index in allPlayers being dragged (mouse)
-var touchDragIdx = null; // index being touch-dragged
-var touchGhost = null;
+var dragSrcIdx = null;   // kept for compatibility — pointer events now used
 
 function renderDrawSlots() {
   var slots = document.querySelectorAll('.draw-slot');
@@ -1972,6 +1973,7 @@ function renderDrawSlots() {
 
   slots.forEach(function(slot, i) {
     var p = allPlayers[i];
+    slot.setAttribute('draggable', 'false'); // pointer events handle drag — no native drag
     slot.classList.toggle('filled', !!p);
     slot.classList.remove('drag-over', 'dragging-source');
 
@@ -2008,6 +2010,47 @@ function renderDrawSlots() {
   wireDrawSlotEvents();
 }
 
+/* ── Pointer drag state — module-level so it survives DOM rebuilds ── */
+var pdSrcIdx = null;
+var pdGhost  = null;
+var pdOffX   = 0;
+var pdOffY   = 0;
+
+function pdCreateGhost(idx, clientX, clientY, slotEl) {
+  if (pdGhost) { pdGhost.remove(); pdGhost = null; }
+  var p = allPlayers[idx];
+  pdGhost = document.createElement('div');
+  pdGhost.className = 'touch-drag-ghost';
+  pdGhost.innerHTML = '<img src="' + p.img + '"><span>' + p.name + '</span>';
+  document.body.appendChild(pdGhost);
+  var r = slotEl.getBoundingClientRect();
+  pdOffX = clientX - (r.left + r.width  / 2);
+  pdOffY = clientY - (r.top  + r.height / 2);
+  pdMoveGhost(clientX, clientY);
+}
+
+function pdMoveGhost(clientX, clientY) {
+  if (!pdGhost) return;
+  pdGhost.style.left = (clientX - pdOffX) + 'px';
+  pdGhost.style.top  = (clientY - pdOffY) + 'px';
+}
+
+function pdSlotFromPoint(clientX, clientY) {
+  if (pdGhost) pdGhost.style.display = 'none';
+  var el = document.elementFromPoint(clientX, clientY);
+  if (pdGhost) pdGhost.style.display = '';
+  return el ? el.closest('.draw-slot') : null;
+}
+
+function pdCleanup() {
+  if (pdGhost) { pdGhost.remove(); pdGhost = null; }
+  document.querySelectorAll('.draw-slot').forEach(function(s) {
+    s.classList.remove('drag-over', 'dragging-source');
+    s.style.cursor = '';
+  });
+  pdSrcIdx = null;
+}
+
 function wireDrawSlotEvents() {
   // Remove button
   document.querySelectorAll('.draw-slot-remove').forEach(function(btn) {
@@ -2022,112 +2065,53 @@ function wireDrawSlotEvents() {
 
   var slots = document.querySelectorAll('.draw-slot');
 
-  // ── Mouse drag-and-drop ──
-  // Ghost suppression: use a transparent 1×1 canvas as the drag image.
-  // The browser's default ghost is the entire element, which can linger
-  // as an artefact after the drop. The transparent pixel eliminates it.
-  var ghostPixel = document.createElement('canvas');
-  ghostPixel.width = ghostPixel.height = 1;
-
-  // Deferred swap: record src+dest in drop, execute in dragend.
-  // This ensures all ghost rendering is fully finished before we
-  // call swapSlots → renderDrawSlots and rebuild the DOM.
-  var pendingSrc = null;
-  var pendingDest = null;
+  // ── Pointer-event drag (mouse + touch + iPad Chrome) ──────────────
+  // We avoid the HTML5 drag API entirely — it produces uncontrollable
+  // ghost clones on Chrome iPad. Pointer events give us full control.
+  // All drag state lives at module scope so it survives renderDrawSlots()
+  // rebuilding the DOM between drags.
 
   slots.forEach(function(slot, i) {
-    slot.addEventListener('dragstart', function(e) {
-      if (!allPlayers[i]) { e.preventDefault(); return; }
-      dragSrcIdx = i;
-      pendingSrc = i;
-      pendingDest = null;
-      e.dataTransfer.setDragImage(ghostPixel, 0, 0);
-      e.dataTransfer.effectAllowed = 'move';
-      // Defer dim so setDragImage snapshot is taken before opacity changes
-      requestAnimationFrame(function() { slot.classList.add('dragging-source'); });
-    });
-    slot.addEventListener('dragend', function() {
-      // Remove all highlight classes first — before any DOM rebuild
-      document.querySelectorAll('.draw-slot').forEach(function(s) {
-        s.classList.remove('drag-over', 'dragging-source');
-      });
-      // Execute the swap now that the browser ghost is gone
-      var src = pendingSrc, dest = pendingDest;
-      dragSrcIdx = null; pendingSrc = null; pendingDest = null;
-      if (src !== null && dest !== null && src !== dest) {
-        swapSlots(src, dest);
-      }
-    });
-    slot.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      document.querySelectorAll('.draw-slot').forEach(function(s) { s.classList.remove('drag-over'); });
-      if (i !== pendingSrc) slot.classList.add('drag-over');
-    });
-    slot.addEventListener('dragleave', function(e) {
-      if (!slot.contains(e.relatedTarget)) slot.classList.remove('drag-over');
-    });
-    slot.addEventListener('drop', function(e) {
-      e.preventDefault();
-      slot.classList.remove('drag-over');
-      if (pendingSrc === null || pendingSrc === i) return;
-      pendingDest = i; // swap will fire in dragend
-    });
-  });
+    // Disable native drag so the browser never spawns its own ghost
+    slot.setAttribute('draggable', 'false');
 
-  // ── Touch drag-and-drop ──
-  slots.forEach(function(slot, i) {
-    slot.addEventListener('touchstart', function(e) {
+    slot.addEventListener('pointerdown', function(e) {
       if (!allPlayers[i]) return;
-      touchDragIdx = i;
-      slot.classList.add('dragging-source');
-
-      // Create ghost
-      touchGhost = document.createElement('div');
-      touchGhost.className = 'touch-drag-ghost';
-      touchGhost.innerHTML = '<img src="' + allPlayers[i].img + '"><span>' + allPlayers[i].name + '</span>';
-      document.body.appendChild(touchGhost);
-      moveTouchGhost(e.touches[0]);
-    }, { passive: true });
-
-    slot.addEventListener('touchmove', function(e) {
-      if (touchDragIdx === null) return;
+      if (e.target.closest('.draw-slot-remove')) return;
       e.preventDefault();
-      moveTouchGhost(e.touches[0]);
+      slot.setPointerCapture(e.pointerId);
+      pdSrcIdx = i;
+      slot.classList.add('dragging-source');
+      pdCreateGhost(i, e.clientX, e.clientY, slot);
+    });
 
-      // Highlight target slot
-      document.querySelectorAll('.draw-slot').forEach(function(s) { s.classList.remove('drag-over'); });
-      var target = slotFromTouch(e.touches[0]);
-      if (target && target !== slot) target.classList.add('drag-over');
-    }, { passive: false });
-
-    slot.addEventListener('touchend', function(e) {
-      if (touchDragIdx === null) return;
-      if (touchGhost) { touchGhost.remove(); touchGhost = null; }
+    slot.addEventListener('pointermove', function(e) {
+      if (pdSrcIdx === null || pdSrcIdx !== i) return;
+      e.preventDefault();
+      pdMoveGhost(e.clientX, e.clientY);
+      var target = pdSlotFromPoint(e.clientX, e.clientY);
       document.querySelectorAll('.draw-slot').forEach(function(s) {
-        s.classList.remove('drag-over', 'dragging-source');
+        s.classList.toggle('drag-over', s === target && target !== slot);
       });
+    });
 
-      var t = e.changedTouches[0];
-      var target = slotFromTouch(t);
+    slot.addEventListener('pointerup', function(e) {
+      if (pdSrcIdx === null || pdSrcIdx !== i) return;
+      var srcIdx = pdSrcIdx;
+      var target = pdSlotFromPoint(e.clientX, e.clientY);
+      pdCleanup();
       if (target) {
-        var targetIdx = parseInt(target.dataset.slot);
-        if (targetIdx !== touchDragIdx) swapSlots(touchDragIdx, targetIdx);
+        var destIdx = parseInt(target.dataset.slot);
+        if (!isNaN(destIdx) && destIdx !== srcIdx) {
+          swapSlots(srcIdx, destIdx);
+        }
       }
-      touchDragIdx = null;
-    }, { passive: true });
+    });
+
+    slot.addEventListener('pointercancel', function() {
+      pdCleanup();
+    });
   });
-}
-
-function moveTouchGhost(touch) {
-  if (!touchGhost) return;
-  touchGhost.style.left = touch.clientX + 'px';
-  touchGhost.style.top  = touch.clientY + 'px';
-}
-
-function slotFromTouch(touch) {
-  var el = document.elementFromPoint(touch.clientX, touch.clientY);
-  return el ? el.closest('.draw-slot') : null;
 }
 
 function swapSlots(a, b) {
