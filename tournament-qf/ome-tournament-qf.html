@@ -26,16 +26,16 @@
 }
 
 html {
-  height: 100%;
-  height: 100dvh;
+  min-height: 100%;
 }
 body {
   background: var(--bg);
   color: var(--text);
   font-family: 'DM Sans', sans-serif;
-  height: 100%;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   padding-top: env(safe-area-inset-top);
@@ -646,42 +646,41 @@ body {
   user-select: none; touch-action: none;
   display: flex;
   min-height: 120px; /* safety floor */
+  max-height: 70vh;
 }
 .fo-half {
   position: relative; height: 100%; overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
 }
 .fo-half-left  { width: 50%; }
 .fo-half-right { flex: 1; }
-/* Each half image is sized to the FULL arena width and positioned so
-   the correct half is always visible — no zoom as slider moves */
+/* Each half sized with object-fit:contain — images always fully visible */
 .fo-half img {
-  position: absolute; top: 0; height: 100%;
+  width: 100%; height: 100%;
   object-fit: contain;
   object-position: center;
   background: #000;
   display: block;
   -webkit-transform: translateZ(0); transform: translateZ(0);
   transition: opacity 0.2s;
-  /* Width set by JS in updateFoSlider to always match arena */
 }
-.fo-half-left  img { left: 0; }
-.fo-half-right img { right: 0; }
 .fo-handle {
   position: absolute; top: 0; bottom: 0; left: 50%;
   transform: translateX(-50%);
   width: 4px; background: #fff; z-index: 10;
   box-shadow: 0 0 16px rgba(255,255,255,0.5);
+  display: flex; align-items: center; justify-content: center;
 }
 .fo-handle::before {
-  content: ''; position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
+  content: ''; position: absolute;
   width: 40px; height: 40px; border-radius: 50%;
   background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  flex-shrink: 0;
 }
 .fo-handle::after {
-  content: '◀ ▶'; position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
+  content: '◀ ▶'; position: absolute;
   font-size: 9px; color: #333; pointer-events: none;
+  z-index: 1;
 }
 .fo-label {
   position: absolute; top: 12px; z-index: 5;
@@ -694,7 +693,7 @@ body {
 .fo-label.left  { left: 12px;  background: rgba(74,144,232,0.85); color: #fff; }
 .fo-label.right { right: 12px; background: rgba(232,74,74,0.85);  color: #fff; }
 
-.fo-hint { color: var(--muted); font-size: 0.8em; text-align: center; margin: 10px 0; }
+.fo-hint { display: none; } /* hint replaced by handle ◀ ▶ icon */
 
 .fo-btns {
   display: flex; gap: 12px; margin-top: 10px; width: 100%; max-width: 800px;
@@ -1140,7 +1139,7 @@ body::before {
 
 <!-- ── Navigation ── -->
 <nav class="nav">
-  <div class="nav-title" id="navTitle" data-version="Build v5 · 2026-03-04">⚡ QUARTER FINALS</div>
+  <div class="nav-title" id="navTitle" data-version="Build v13 · 2026-07-10 14:44 AEST">⚡ QUARTER FINALS</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-screen="import">Players</button>
     <button class="nav-tab" data-screen="bracket">Round</button>
@@ -1628,7 +1627,7 @@ body::before {
 </div>
 
 <script>
-/* BUILD v22 — 2026-02-23
+/* BUILD v13 (ome-tournament-qf) — 2026-07-10 14:44 AEST
    Added fullscreen button ⛶ to nav bar. Fullscreen API with webkit/moz
    prefixes for broad support. Icon toggles ⛶↔✕. Auto-hides if unavailable.
 */
@@ -1676,13 +1675,15 @@ body::before {
 /* ══════════════════════════════════════════════════════════
    STATE
 ══════════════════════════════════════════════════════════ */
+var _playerIdCounter = 0; // monotonic — guarantees unique IDs even in same millisecond
 var allPlayers    = [];   // { id, name, img, points }
 var tournament    = null; // current tournament object
 var leagueRound   = 0;    // 0 = never played, increments each startTournament
 var activeTSize   = 4;    // fixed: Quarter Finals (4v4 = 8 players)
 var currentMatch  = null; // match being played in face-off
 
-var POINTS = { 1:10, 2:6, 3:4, 4:3, 5:2 };
+var POINTS = { 1:10, 2:6, 3:3, 5:1 };
+// Points: 1st=10, 2nd=6, SF losers=3 each, QF losers=1 each, R16+=0
 
 /* ══════════════════════════════════════════════════════════
    NAVIGATION
@@ -2026,7 +2027,7 @@ function loadFiles(files) {
       return p.name === name || p.name.indexOf(name + ' (') === 0;
     });
     var finalName = existing.length > 0 ? name + ' (' + (existing.length + 1) + ')' : name;
-    allPlayers.push({ id: Date.now() + Math.random(), name: finalName, img: dataUrl, points: 0 });
+    allPlayers.push({ id: ++_playerIdCounter + '_' + Date.now(), name: finalName, img: dataUrl, points: 0 });
   }
 } // end loadFiles
 
@@ -2957,9 +2958,13 @@ function openFaceOff(match) {
                 ? foImgR.naturalWidth  / foImgR.naturalHeight : 4/3;
       var ar  = Math.max(arL, arR);
       foArena.style.aspectRatio = ar;
+        // Force reflow so aspect-ratio takes effect, then update slider
+      void foArena.offsetWidth;
       foImgL.style.opacity = '1';
       foImgR.style.opacity = '1';
       updateFoSlider(foSliderPct);
+      // Second pass after paint to catch any remaining layout settling
+      requestAnimationFrame(function() { updateFoSlider(foSliderPct); });
     }
   }
 
@@ -2968,44 +2973,33 @@ function openFaceOff(match) {
   foImgR.onload  = onLoaded;
   foImgR.onerror = onLoaded;
 
-  // If images are already decoded in browser cache, onload won't fire — show immediately
+  // Set src — onload fires when decoded. For cached/base64 images already in memory,
+  // onload may not fire so we check after a rAF and call onLoaded manually if needed.
   foImgL.src = match.p1.img;
   foImgR.src = match.p2.img;
 
-  // Check if already cached (naturalWidth set means decoded and ready)
-  if (foImgL.complete && foImgR.complete) {
-    foImgL.style.opacity = '1';
-    foImgR.style.opacity = '1';
-    updateFoSlider(foSliderPct);
-  } else {
-    // Safety fallback — show after 1s regardless
+  // Give browser one frame to decode, then force onLoaded if already complete
+  requestAnimationFrame(function() {
+    if (foImgL.complete) onLoaded();
+    if (foImgR.complete) onLoaded();
+    // Safety fallback — show after 800ms regardless
     setTimeout(function() {
       if (loadCount < 2) {
+        loadCount = 2;
+        foArena.style.aspectRatio = '4/3';
         foImgL.style.opacity = '1';
         foImgR.style.opacity = '1';
+        updateFoSlider(foSliderPct);
       }
-    }, 1000);
-  }
+    }, 800);
+  });
 }
 
 function updateFoSlider(pct) {
   foSliderPct = Math.max(2, Math.min(98, pct));
   foHalfLeft.style.width = foSliderPct + '%';
   foHandle.style.left    = foSliderPct + '%';
-
-  // Set each image's width to the full arena width expressed as a % of its container,
-  // so neither image changes apparent size as the divider moves.
-  // Left image container is foSliderPct% wide, so image needs (100/foSliderPct)*100% to equal arena width.
-  // Right image container is (100-foSliderPct)% wide, same logic.
-  var arenaW = foArena.getBoundingClientRect().width;
-  if (arenaW > 0) {
-    foImgL.style.width = arenaW + 'px';
-    foImgR.style.width = arenaW + 'px';
-  } else {
-    // Fallback before layout is ready
-    foImgL.style.width = (100 / foSliderPct * 100) + '%';
-    foImgR.style.width = (100 / (100 - foSliderPct) * 100) + '%';
-  }
+  // Images are sized by CSS object-fit:contain within each half — no JS width needed
 }
 
 function foX(clientX) {
@@ -3166,11 +3160,11 @@ function showWinnerCeremony() {
   var podium = document.getElementById('podiumRow');
   podium.innerHTML = '';
   var places = [
-    { place:'🥇 1st', player: t.places[1], pts: POINTS[1] },
-    { place:'🥈 2nd', player: t.places[2], pts: POINTS[2] },
-    { place:'🥉 3rd', player: t.places[3] && t.places[3][0], pts: POINTS[3] },
-    { place:'4th',    player: t.places[3] && t.places[3][1], pts: POINTS[4] },
-    { place:'5th',    player: t.places[5] && t.places[5][0], pts: POINTS[5] },
+    { place:'🥇 1st',  player: t.places[1],                    pts: POINTS[1] },
+    { place:'🥈 2nd',  player: t.places[2],                    pts: POINTS[2] },
+    { place:'🥉 3rd=', player: t.places[3] && t.places[3][0], pts: POINTS[3] },
+    { place:'🥉 4th=', player: t.places[3] && t.places[3][1], pts: POINTS[3] },
+    { place:'5th=',    player: t.places[5] && t.places[5][0], pts: POINTS[5] },
   ];
   places.forEach(function(entry) {
     if (!entry.player) return;
@@ -4095,7 +4089,8 @@ document.getElementById('fileLoadData').addEventListener('change', function() {
   try { this.value = null; } catch(ex) {}
 });
 
-// BUILD v2 (ome-tournament-of-things-qf) — 2026-03-04
+// BUILD v13 (ome-tournament-qf) — 2026-07-10 14:44 AEST
+// Fixed: duplicate player ID collision (Date.now+random). Using monotonic counter.
 // Quarter Finals Edition: fixed 8-player (4v4) only.
 // New seeded draw interface: 8 numbered slots arranged as the bracket (QF1–QF4).
 // Drag-and-drop reordering — mouse and touch (iOS/Android) both supported.
