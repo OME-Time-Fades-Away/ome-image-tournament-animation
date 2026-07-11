@@ -1134,7 +1134,7 @@ body::before {
 
 <!-- ── Navigation ── -->
 <nav class="nav">
-  <div class="nav-title" id="navTitle" data-version="Build v13 · 2026-07-10 14:44 AEST">⚡ TOURNAMENT</div>
+  <div class="nav-title" id="navTitle" data-version="Build v14 · 2026-07-10 21:48 AEST">⚡ TOURNAMENT</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-screen="import">Players</button>
     <button class="nav-tab" data-screen="bracket">Round</button>
@@ -1662,7 +1662,7 @@ body::before {
 </div>
 
 <script>
-/* BUILD v13 (ome-image-tournament-animation) — 2026-07-10 14:44 AEST
+/* BUILD v14 (ome-image-tournament-animation) — 2026-07-10 21:48 AEST
    Added fullscreen button ⛶ to nav bar. Fullscreen API with webkit/moz
    prefixes for broad support. Icon toggles ⛶↔✕. Auto-hides if unavailable.
 */
@@ -1818,7 +1818,9 @@ function readCaption(buffer) {
   // IPTC Caption-Abstract preferred, EXIF ImageDescription as fallback
   var caption = iptcCaption || exifCaption;
   if (caption) {
-    caption = caption.replace(/\0/g, '').trim(); // strip null terminators
+    caption = caption.replace(/\0/g, '').trim();
+    // Reject generic auto-captions written by iOS/Windows — "Screenshot", "Screenshot (2)" etc.
+    if (/^screenshot(\s*(\(\d+\)|-\s*\d+))?$/i.test(caption)) return null;
     if (caption.length > 0 && caption.length <= 80) return caption;
     if (caption.length > 80) return caption.slice(0, 80).trim();
   }
@@ -2074,18 +2076,20 @@ document.getElementById('btnClear').addEventListener('click', function() {
 
 function updateSizeButtons() {
   var n = allPlayers.length;
+
+  // Disable each button individually — only enable if we have enough players
   document.querySelectorAll('.size-btn').forEach(function(btn) {
     var sz = parseInt(btn.dataset.size);
-    var needed = sz * 2;
-    btn.classList.toggle('disabled', n < 2); // always allow if ≥2 players
+    btn.classList.toggle('disabled', n < sz * 2);
   });
 
-  // Auto-select best size
-  var sizes = [1,2,4,8,16,32];
-  var best = 1;
-  sizes.forEach(function(sz) { if (n >= sz * 2) best = sz; });
-  // Don't auto-change if user manually picked
-  if (!document.querySelector('.size-btn.selected') || allPlayers.length === 0) {
+  // Auto-select best size ONLY when no manual selection has been made yet
+  // (i.e. no button is selected, or player list was just cleared)
+  var hasSelection = !!document.querySelector('.size-btn.selected:not(.disabled)');
+  if (!hasSelection) {
+    var sizes = [1,2,4,8,16,32];
+    var best = 1;
+    sizes.forEach(function(sz) { if (n >= sz * 2) best = sz; });
     activeTSize = best;
     document.querySelectorAll('.size-btn').forEach(function(btn) {
       btn.classList.toggle('selected', parseInt(btn.dataset.size) === best);
@@ -4499,7 +4503,7 @@ document.getElementById('fileLoadData').addEventListener('change', function() {
   try { this.value = null; } catch(ex) {}
 });
 
-// BUILD v13 (ome-image-tournament-animation) — 2026-07-10 14:44 AEST
+// BUILD v14 (ome-image-tournament-animation) — 2026-07-10 21:48 AEST
 // Fixed: duplicate player ID collision. Using monotonic counter.
 // Image zoom fix: fo-arena aspect-ratio now set dynamically from loaded images'
 // natural dimensions. Previously fixed 4/3 caused images to be cut off at 100%
