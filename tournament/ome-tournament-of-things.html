@@ -984,7 +984,7 @@ body::before {
 
 <!-- ── Navigation ── -->
 <nav class="nav">
-  <div class="nav-title" id="navTitle" data-version="Build v39 · 2026-07-10 14:44 AEST">⚡ TOURNAMENT</div>
+  <div class="nav-title" id="navTitle" data-version="Build v40 · 2026-07-10 21:48 AEST">⚡ TOURNAMENT</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-screen="import">Players</button>
     <button class="nav-tab" data-screen="bracket">Round</button>
@@ -1418,7 +1418,7 @@ body::before {
 </div>
 
 <script>
-/* BUILD v39 (ome-tournament-of-things) — 2026-07-10 14:44 AEST
+/* BUILD v40 (ome-tournament-of-things) — 2026-07-10 21:48 AEST
    Added fullscreen button ⛶ to nav bar. Fullscreen API with webkit/moz
    prefixes for broad support. Icon toggles ⛶↔✕. Auto-hides if unavailable.
 */
@@ -1574,7 +1574,9 @@ function readCaption(buffer) {
   // IPTC Caption-Abstract preferred, EXIF ImageDescription as fallback
   var caption = iptcCaption || exifCaption;
   if (caption) {
-    caption = caption.replace(/\0/g, '').trim(); // strip null terminators
+    caption = caption.replace(/\0/g, '').trim();
+    // Reject generic auto-captions written by iOS/Windows — "Screenshot", "Screenshot (2)" etc.
+    if (/^screenshot(\s*(\(\d+\)|-\s*\d+))?$/i.test(caption)) return null;
     if (caption.length > 0 && caption.length <= 80) return caption;
     if (caption.length > 80) return caption.slice(0, 80).trim();
   }
@@ -3695,7 +3697,7 @@ document.getElementById('fileLoadData').addEventListener('change', function() {
   try { this.value = null; } catch(ex) {}
 });
 
-// BUILD v39 (ome-tournament-of-things) — 2026-07-10 14:44 AEST
+// BUILD v40 (ome-tournament-of-things) — 2026-07-10 21:48 AEST
 // Image zoom fix: fo-arena aspect-ratio is now set dynamically from the loaded
 // images' natural dimensions (Math.max of both aspect ratios → most landscape).
 // Previously fixed 4/3 caused images to be cropped at 100% browser zoom.
