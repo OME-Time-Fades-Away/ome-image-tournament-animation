@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>OME Aspect Ratio Crop Engine</title>
-    <!-- Build v3.4.0 · 2026-07-21 15:34 AEST -->
+    <!-- Build v3.5.1 · 2026-07-21 16:25 AEST -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
             --bg-deep: #0a0a0c;
@@ -38,7 +39,6 @@
         .stat-card span { font-weight: 700; margin-left: 4px; }
         #main-container { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #020203; overflow: hidden; width: 100%; }
         
-        /* Fixed Viewport Constraints for Ultra Large Images */
         #viewport-wrapper { 
             position: relative; display: none; 
             max-width: 90vw; max-height: calc(100vh - 260px);
@@ -86,6 +86,7 @@
             cursor: pointer; min-width: 110px; text-align: center;
         }
         .action-btn.primary { background: var(--success); border-color: var(--success); color: #fff; }
+        .action-btn.zip-btn { background: var(--accent); border-color: var(--accent); color: #fff; }
         .toggle-btn { background: #3a3a44; font-size: 13px; min-width: 90px; }
 
         #logger {
@@ -100,11 +101,11 @@
     <header>
         <div class="title">
             <h1>IMAGE ASPECT RATIO TOOL</h1>
-            <span>Build v3.4.0 · Cross-Platform Deployment</span>
+            <span>Build v3.5.1 · Batch ZIP Export</span>
         </div>
         <div class="stats">
             <div class="stat-card">Index: <span id="s-prog" style="color:var(--accent)">0 / 0</span></div>
-            <div class="stat-card">Saved: <span id="s-save" style="color:var(--success)">0</span></div>
+            <div class="stat-card">Staged: <span id="s-save" style="color:var(--success)">0</span></div>
             <div class="stat-card">Skipped: <span id="s-skip" style="color:var(--warning)">0</span></div>
         </div>
     </header>
@@ -130,7 +131,8 @@
     <div id="controls">
         <button class="action-btn" onclick="skipPhoto()">Skip Frame</button>
         <button class="action-btn toggle-btn" onclick="toggleConsole()" id="btn-toggle-log">Hide Log</button>
-        <button class="action-btn primary" onclick="saveCrop()">Commit & Save</button>
+        <button class="action-btn zip-btn" id="btn-zip" onclick="downloadZip()" style="display:none">Download ZIP</button>
+        <button class="action-btn primary" id="btn-commit" onclick="saveCrop()">Commit Crop</button>
     </div>
 
     <div id="logger"></div>
@@ -138,6 +140,7 @@
     <script>
         let files = [], idx = 0, saved = 0, skipped = 0;
         let ratio = 1.333, imgW = 0, imgH = 0, scale = 1;
+        let croppedQueue = [];
         const box = { x: 0, y: 0, w: 0, h: 0 };
         const ov = document.getElementById('crop-overlay');
         const img = document.getElementById('display-image');
@@ -146,7 +149,9 @@
 
         document.getElementById('f-in').addEventListener('change', (e) => {
             files = Array.from(e.target.files); if (!files.length) return;
-            idx = 0; saved = 0; skipped = 0;
+            idx = 0; saved = 0; skipped = 0; croppedQueue = [];
+            document.getElementById('btn-zip').style.display = 'none';
+            document.getElementById('btn-commit').style.display = 'block';
             setup.style.display = 'none'; wrapper.style.display = 'block';
             log(`Pipeline initialized: ${files.length} items loaded.`, '#34c759');
             nextItem();
@@ -189,14 +194,14 @@
         function nextItem() {
             const total = files.length;
             
-            // Fixed Counter Bug: Update layout text dynamically
             document.getElementById('s-save').innerText = saved;
             document.getElementById('s-skip').innerText = skipped;
 
             if (idx >= total) {
                 document.getElementById('s-prog').innerText = `${total} / ${total}`;
-                log("Batch sequence processing pipeline clean completed.", '#34c759');
-                reset(); return;
+                log("Batch queue complete. Ready for ZIP export.", '#34c759');
+                finishBatch(); 
+                return;
             }
             
             document.getElementById('s-prog').innerText = `${idx + 1} / ${total}`;
@@ -217,14 +222,12 @@
                         ratio = r > 1 ? 1.333 : 0.75;
                         img.src = e.target.result;
                         
-                        // FIXED: Wait until the browser completes layout calculations to prevent handles from hiding
                         setTimeout(() => {
                             const dispW = img.clientWidth || img.width;
                             const dispH = img.clientHeight || img.height;
                             
                             scale = imgW / dispW;
                             
-                            // Maximize bounding crop area to 100% canvas coverage
                             if (dispW / dispH > ratio) {
                                 box.h = dispH; box.w = box.h * ratio;
                             } else {
@@ -239,6 +242,7 @@
             };
             reader.readAsDataURL(files[idx]);
         }
+
         function draw() {
             ov.style.width = box.w + 'px'; ov.style.height = box.h + 'px';
             ov.style.left = box.x + 'px'; ov.style.top = box.y + 'px';
@@ -276,12 +280,11 @@
                             const orig = currentFile.name;
                             const bName = orig.substring(0, orig.lastIndexOf('.')) || orig;
                             const ext = orig.substring(orig.lastIndexOf('.')) || '.jpg';
+                            const fileName = `${bName}_43crop${ext}`;
+
+                            croppedQueue.push({ name: fileName, blob: finalBlob });
                             
-                            const a = document.createElement('a');
-                            a.download = `${bName}_43crop${ext}`; a.href = URL.createObjectURL(finalBlob); a.click();
-                            setTimeout(() => URL.revokeObjectURL(a.href), 150);
-                            
-                            log(`Saved with complete EXIF tracking: ${a.download}`, '#34c759'); 
+                            log(`Staged for ZIP export: ${fileName}`, '#34c759'); 
                             saved++; 
                             idx++; 
                             nextItem();
@@ -294,7 +297,57 @@
             base.src = img.src;
         }
 
-        function reset() { wrapper.style.display = 'none'; setup.style.display = 'flex'; document.getElementById('f-in').value = ''; }
+        function finishBatch() {
+            wrapper.style.display = 'none';
+            document.getElementById('btn-commit').style.display = 'none';
+            
+            if (croppedQueue.length > 0) {
+                document.getElementById('btn-zip').style.display = 'block';
+                log(`Batch ready! ${croppedQueue.length} cropped photo(s) staged in memory. Click 'Download ZIP'.`, '#007aff');
+            } else {
+                log("No cropped images staged for download.", '#ff9500');
+                reset();
+            }
+        }
+
+        function downloadZip() {
+            if (croppedQueue.length === 0) return;
+            log("Packaging images into ZIP archive...", '#007aff');
+            
+            const zip = new JSZip();
+            croppedQueue.forEach(item => {
+                // Compression STORE prevents redundant JPEG compression & saves CPU/RAM
+                zip.file(item.name, item.blob, { compression: "STORE" });
+            });
+
+            zip.generateAsync({ type: 'blob' }).then((zipContent) => {
+                const zipUrl = URL.createObjectURL(zipContent);
+                const a = document.createElement('a');
+                a.download = `cropped_photos_${Date.now()}.zip`;
+                a.href = zipUrl;
+                a.click();
+                
+                setTimeout(() => URL.revokeObjectURL(zipUrl), 1000);
+                
+                log("ZIP export complete!", '#34c759');
+                reset();
+            }).catch(err => {
+                log(`Failed to create ZIP file: ${err}`, '#ff3b30');
+            });
+        }
+
+        function reset() { 
+            // Explicit memory garbage collection cleanup
+            croppedQueue.length = 0;
+            croppedQueue = [];
+            files = [];
+            
+            wrapper.style.display = 'none'; 
+            setup.style.display = 'flex'; 
+            document.getElementById('f-in').value = ''; 
+            document.getElementById('btn-zip').style.display = 'none';
+            document.getElementById('btn-commit').style.display = 'block';
+        }
 
         (function initGestures() {
             let active = false, resize = false, hMode = null, sX, sY, sW, sH, sL, sT;
