@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>OME Aspect Ratio Crop Engine</title>
-    <!-- Build v3.3.0 · 2026-07-21 12:45 AEST -->
+    <!-- Build v3.4.0 · 2026-07-21 15:34 AEST -->
     <style>
         :root {
             --bg-deep: #0a0a0c;
@@ -36,9 +36,19 @@
             border: 1px solid var(--border); font-size: 13px; font-weight: 500;
         }
         .stat-card span { font-weight: 700; margin-left: 4px; }
-        #main-container { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #020203; overflow: hidden; }
-        #viewport-wrapper { position: relative; display: none; filter: drop-shadow(0 12px 30px rgba(0,0,0,0.7)); }
-        #display-image { max-width: 100vw; max-height: calc(100vh - 240px); display: block; pointer-events: none; }
+        #main-container { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #020203; overflow: hidden; width: 100%; }
+        
+        /* Fixed Viewport Constraints for Ultra Large Images */
+        #viewport-wrapper { 
+            position: relative; display: none; 
+            max-width: 90vw; max-height: calc(100vh - 260px);
+            filter: drop-shadow(0 12px 30px rgba(0,0,0,0.7)); 
+        }
+        #display-image { 
+            max-width: 90vw; max-height: calc(100vh - 260px); 
+            display: block; pointer-events: none; object-fit: contain;
+        }
+        
         #crop-overlay {
             position: absolute; border: 2px solid var(--accent);
             box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.78); cursor: move; touch-action: none;
@@ -51,43 +61,36 @@
         #crop-overlay::after { border-top-width: 33.33%; border-bottom-width: 33.33%; }
         
         .handle {
-            position: absolute; width: 30px; height: 30px; background: var(--text);
+            position: absolute; width: 32px; height: 32px; background: var(--text);
             border: 4px solid var(--accent); border-radius: 50%; z-index: 5;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5); transition: transform 0.1s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
         }
-        .handle:active { transform: scale(1.2); }
-        .tl { top: -15px; left: -15px; cursor: nwse-resize; }
-        .tr { top: -15px; right: -15px; cursor: nesw-resize; }
-        .bl { bottom: -15px; left: -15px; cursor: nesw-resize; }
-        .br { bottom: -15px; right: -15px; cursor: nwse-resize; }
+        .tl { top: -16px; left: -16px; cursor: nwse-resize; }
+        .tr { top: -16px; right: -16px; cursor: nesw-resize; }
+        .bl { bottom: -16px; left: -16px; cursor: nesw-resize; }
+        .br { bottom: -16px; right: -16px; cursor: nwse-resize; }
         
         #setup { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 30px; text-align: center; max-width: 500px; }
         .picker-btn {
             background: var(--accent); color: #fff; font-weight: 600; padding: 16px 36px;
             border-radius: 14px; border: none; font-size: 17px; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,122,255,0.3); transition: all 0.2s;
         }
-        .picker-btn:hover { background: #1a87ff; transform: translateY(-1px); }
         
         #controls {
-            background: var(--bg-surface); padding: 18px 24px; border-top: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center; z-index: 10;
+            background: var(--bg-surface); padding: 14px 24px; border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; z-index: 10; gap: 10px;
         }
         .action-btn {
             background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
-            padding: 14px 28px; border-radius: 10px; font-weight: 600; font-size: 15px;
-            cursor: pointer; min-width: 130px; text-align: center; transition: all 0.15s;
+            padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 15px;
+            cursor: pointer; min-width: 110px; text-align: center;
         }
-        .action-btn:hover { background: #282830; }
-        .action-btn.primary {
-            background: var(--success); border-color: var(--success); color: #fff;
-            box-shadow: 0 4px 12px rgba(52,199,89,0.2);
-        }
-        .action-btn.primary:hover { background: #42d367; }
-        
+        .action-btn.primary { background: var(--success); border-color: var(--success); color: #fff; }
+        .toggle-btn { background: #3a3a44; font-size: 13px; min-width: 90px; }
+
         #logger {
             height: 95px; background: #050507; border-top: 1px solid var(--border);
-            font-family: SFMono-Regular, Consolas, monospace; font-size: 11px; padding: 10px 16px;
+            font-family: monospace; font-size: 11px; padding: 10px 16px;
             overflow-y: scroll; color: #a1a1aa; user-select: text; -webkit-user-select: text;
         }
         .log-line { margin-bottom: 4px; line-height: 1.5; }
@@ -97,7 +100,7 @@
     <header>
         <div class="title">
             <h1>IMAGE ASPECT RATIO TOOL</h1>
-            <span>Build v3.3.0 · Production Deployment Matrix</span>
+            <span>Build v3.4.0 · Cross-Platform Deployment</span>
         </div>
         <div class="stats">
             <div class="stat-card">Index: <span id="s-prog" style="color:var(--accent)">0 / 0</span></div>
@@ -126,6 +129,7 @@
 
     <div id="controls">
         <button class="action-btn" onclick="skipPhoto()">Skip Frame</button>
+        <button class="action-btn toggle-btn" onclick="toggleConsole()" id="btn-toggle-log">Hide Log</button>
         <button class="action-btn primary" onclick="saveCrop()">Commit & Save</button>
     </div>
 
@@ -144,7 +148,7 @@
             files = Array.from(e.target.files); if (!files.length) return;
             idx = 0; saved = 0; skipped = 0;
             setup.style.display = 'none'; wrapper.style.display = 'block';
-            log(`Pipeline initialized: ${files.length} buffer elements parsed.`, '#34c759');
+            log(`Pipeline initialized: ${files.length} items loaded.`, '#34c759');
             nextItem();
         });
 
@@ -154,7 +158,15 @@
             p.scrollTop = p.scrollHeight;
         }
 
-        log("Cross-Platform Pointer Engine Loaded Successfully.");
+        function toggleConsole() {
+            const panel = document.getElementById('logger');
+            const btn = document.getElementById('btn-toggle-log');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block'; btn.innerText = 'Hide Log';
+            } else {
+                panel.style.display = 'none'; btn.innerText = 'Show Log';
+            }
+        }
 
         function extractExif(buffer) {
             try {
@@ -176,6 +188,11 @@
 
         function nextItem() {
             const total = files.length;
+            
+            // Fixed Counter Bug: Update layout text dynamically
+            document.getElementById('s-save').innerText = saved;
+            document.getElementById('s-skip').innerText = skipped;
+
             if (idx >= total) {
                 document.getElementById('s-prog').innerText = `${total} / ${total}`;
                 log("Batch sequence processing pipeline clean completed.", '#34c759');
@@ -183,8 +200,6 @@
             }
             
             document.getElementById('s-prog').innerText = `${idx + 1} / ${total}`;
-            document.getElementById('s-save').innerText = saved;
-            document.getElementById('s-skip').innerText = skipped;
             
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -192,21 +207,32 @@
                 i.onload = () => {
                     imgW = i.width; imgH = i.height;
                     const r = imgW / imgH;
+                    
                     if (Math.abs(r - 1.333) < 0.03 || Math.abs(r - 0.75) < 0.03) {
-                        log(`Target matches aspect rules. Auto skipped: ${files[idx].name}`, '#ff9500'); skipped++; idx++; nextItem();
+                        log(`Target matches aspect rules. Auto skipped: ${files[idx].name}`, '#ff9500'); 
+                        skipped++; 
+                        idx++; 
+                        nextItem();
                     } else {
                         ratio = r > 1 ? 1.333 : 0.75;
                         img.src = e.target.result;
-                        img.onload = () => {
-                            scale = imgW / img.clientWidth;
-                            if (img.clientWidth / img.clientHeight > ratio) {
-                                box.h = img.clientHeight; box.w = box.h * ratio;
+                        
+                        // FIXED: Wait until the browser completes layout calculations to prevent handles from hiding
+                        setTimeout(() => {
+                            const dispW = img.clientWidth || img.width;
+                            const dispH = img.clientHeight || img.height;
+                            
+                            scale = imgW / dispW;
+                            
+                            // Maximize bounding crop area to 100% canvas coverage
+                            if (dispW / dispH > ratio) {
+                                box.h = dispH; box.w = box.h * ratio;
                             } else {
-                                box.w = img.clientWidth; box.h = box.w / ratio;
+                                box.w = dispW; box.h = box.w / ratio;
                             }
-                            box.x = (img.clientWidth - box.w) / 2; box.y = (img.clientHeight - box.h) / 2;
+                            box.x = (dispW - box.w) / 2; box.y = (dispH - box.h) / 2;
                             draw();
-                        };
+                        }, 50);
                     }
                 };
                 i.src = e.target.result;
@@ -218,9 +244,14 @@
             ov.style.left = box.x + 'px'; ov.style.top = box.y + 'px';
         }
 
-        function skipPhoto() { log(`Manual bypass applied to: ${files[idx].name}`); skipped++; idx++; nextItem(); }
+        function skipPhoto() { 
+            log(`Manual bypass applied to: ${files[idx].name}`); 
+            skipped++; 
+            idx++; 
+            nextItem(); 
+        }
 
-                function saveCrop() {
+        function saveCrop() {
             const currentFile = files[idx];
             const canvas = document.createElement('canvas');
             canvas.width = box.w * scale; canvas.height = box.h * scale;
@@ -251,11 +282,7 @@
                             setTimeout(() => URL.revokeObjectURL(a.href), 150);
                             
                             log(`Saved with complete EXIF tracking: ${a.download}`, '#34c759'); 
-                            
-                            // FIXED: Increment and forcefully push update to screen layout before queue advancement
                             saved++; 
-                            document.getElementById('s-save').innerText = saved;
-                            
                             idx++; 
                             nextItem();
                         };
@@ -266,7 +293,6 @@
             };
             base.src = img.src;
         }
-
 
         function reset() { wrapper.style.display = 'none'; setup.style.display = 'flex'; document.getElementById('f-in').value = ''; }
 
@@ -297,7 +323,7 @@
                     } else if (hMode === 'tl') {
                         nW = Math.min(sW - dX, sL + sW, (sT + sH) * ratio); nH = nW / ratio; nX = sL + sW - nW; nY = sT + sH - nH;
                     }
-                    if (nW > 50 && nH > 50) { box.w = nW; box.h = nH; box.x = nX; box.y = nY; }
+                    if (nW > 40 && nH > 40) { box.w = nW; box.h = nH; box.x = nX; box.y = nY; }
                 }
                 draw(); e.preventDefault();
             });
@@ -314,4 +340,3 @@
     </script>
 </body>
 </html>
-
