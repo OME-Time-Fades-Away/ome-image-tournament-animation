@@ -220,7 +220,7 @@
 
         function skipPhoto() { log(`Manual bypass applied to: ${files[idx].name}`); skipped++; idx++; nextItem(); }
 
-        function saveCrop() {
+                function saveCrop() {
             const currentFile = files[idx];
             const canvas = document.createElement('canvas');
             canvas.width = box.w * scale; canvas.height = box.h * scale;
@@ -249,7 +249,15 @@
                             const a = document.createElement('a');
                             a.download = `${bName}_43crop${ext}`; a.href = URL.createObjectURL(finalBlob); a.click();
                             setTimeout(() => URL.revokeObjectURL(a.href), 150);
-                            log(`Saved with complete EXIF tracking: ${a.download}`, '#34c759'); saved++; idx++; nextItem();
+                            
+                            log(`Saved with complete EXIF tracking: ${a.download}`, '#34c759'); 
+                            
+                            // FIXED: Increment and forcefully push update to screen layout before queue advancement
+                            saved++; 
+                            document.getElementById('s-save').innerText = saved;
+                            
+                            idx++; 
+                            nextItem();
                         };
                         blobReader.readAsArrayBuffer(blob);
                     }, currentFile.type || 'image/jpeg', 0.94);
@@ -258,6 +266,7 @@
             };
             base.src = img.src;
         }
+
 
         function reset() { wrapper.style.display = 'none'; setup.style.display = 'flex'; document.getElementById('f-in').value = ''; }
 
