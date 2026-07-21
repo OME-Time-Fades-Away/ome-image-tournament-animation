@@ -121,10 +121,11 @@
     position: relative;
   }
   .card:nth-child(1) { animation-delay: 0.10s; }
-  .card:nth-child(2) { animation-delay: 0.20s; }
-  .card:nth-child(3) { animation-delay: 0.30s; }
-  .card:nth-child(4) { animation-delay: 0.40s; }
-  .card:nth-child(5) { animation-delay: 0.50s; }
+  .card:nth-child(2) { animation-delay: 0.18s; }
+  .card:nth-child(3) { animation-delay: 0.26s; }
+  .card:nth-child(4) { animation-delay: 0.34s; }
+  .card:nth-child(5) { animation-delay: 0.42s; }
+  .card:nth-child(6) { animation-delay: 0.50s; }
 
   .card:hover {
     transform: translateY(-3px);
@@ -235,7 +236,7 @@
   <header class="header">
     <div class="header-eyebrow">OME · Tournament Tools</div>
     <h1>OME<br><span>TOURNAMENT TOOLS</span></h1>
-    <p class="header-sub">Five tools for comparing and ranking images — head-to-head compare, full open tournament, animated tournament, seeded Quarter Finals draw, and automated random simulation.</p>
+    <p class="header-sub">Six tools for working with your photos — head-to-head compare, full open tournament, animated tournament, seeded Quarter Finals draw, automated random simulation, and batch aspect-ratio cropping.</p>
     <div class="rule"></div>
   </header>
 
@@ -335,11 +336,30 @@
       </div>
     </a>
 
+    <a class="card" href="image-crop/ome-image-crop.html">
+      <div class="card-accent"></div>
+      <div class="card-body">
+        <div class="card-icon">✂️</div>
+        <div class="card-text">
+          <div class="card-title">Image Crop</div>
+          <div class="card-desc">Batch-review photos that aren't 4:3 or 3:4 and crop them to fit — drag or pinch to adjust, toggle between 4:3 and 3:4 per photo. Anything already the right shape is skipped automatically.</div>
+          <div class="card-tags">
+            <span class="tag">Batch review</span>
+            <span class="tag">Drag &amp; pinch resize</span>
+            <span class="tag">4:3 / 3:4 toggle</span>
+            <span class="tag">Auto-skip</span>
+          </div>
+        </div>
+        <div class="card-badge">Crop Tool</div>
+        <div class="card-arrow">›</div>
+      </div>
+    </a>
+
   </div>
 
   <footer class="footer">
     <strong>OME</strong> · Tournament Tools · All tools run entirely in your browser — no data leaves your device.
-    <div class="footer-build">Index v3 · 2026-07-10 21:44 AEST</div>
+    <div class="footer-build">Index v4 · 2026-07-21 13:03 AEST</div>
   </footer>
 
 </div>
