@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>ome-image-crop</title>
+<link rel="icon" type="image/png" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -311,7 +312,7 @@ button.btn {
 <body>
 
 <div class="nav">
-  <span class="nav-title" data-version="Build v12 · 2026-07-22 08:52 AEST">OME IMAGE CROP</span>
+  <span class="nav-title" data-version="Build v14 · 2026-07-22 15:58 AEST">OME IMAGE CROP</span>
   <div class="nav-actions">
     <span class="nav-badge hidden" id="preview-badge">Preview mode</span>
     <button class="nav-btn" id="console-toggle">Console</button>
@@ -325,11 +326,12 @@ button.btn {
     Select photos to review, or drag them in from another app (Photos, Files —
     Split View or Stage Manager works). To drag more than one at once, long-press
     the first photo, then tap others with a second finger to stack them before
-    dropping. Anything already 4:3 or 3:4 is skipped automatically
-    &mdash; everything else opens for a quick crop check.
+    dropping. Anything already 4:3 or 3:4 &mdash; or skipped &mdash; is included
+    unchanged; everything else opens for a quick crop check.
     Drag the box to move it, drag a corner dot or pinch to resize it, tap the
-    ratio label to switch between 4:3 and 3:4. Everything cropped gets bundled
-    into one zip file at the end, so you only get one save prompt for the batch.
+    ratio label to switch between 4:3 and 3:4. The whole batch (cropped and
+    unchanged) gets bundled into one zip file at the end, so you only get one
+    save prompt and a complete replacement set for what you loaded.
   </p>
   <button class="btn btn-primary" id="pick-btn">Select Photos</button>
   <input type="file" id="file-input" accept="image/*,.heic,.heif" multiple>
@@ -369,8 +371,10 @@ button.btn {
   <p class="summary-line" id="summary-exported"></p>
   <p class="summary-line" id="summary-auto"></p>
   <p class="summary-line" id="summary-skipped"></p>
-  <p class="hint" id="download-hint">Cropped photos were bundled into one zip file in your browser's
-    Downloads folder, keeping original capture date/GPS/camera info where possible. Originals are untouched.</p>
+  <p class="hint" id="download-hint">Every photo you loaded ended up in one zip file in your browser's Downloads
+    folder — cropped, unchanged, or included as-is if it couldn't be previewed — keeping original capture
+    date/GPS/camera info where possible. It's a complete set for what you loaded; the source files themselves
+    are untouched.</p>
   <button class="btn btn-primary" id="restart-btn">Select More Photos</button>
 </div>
 
@@ -406,6 +410,33 @@ button.btn {
              relying on .files alone, since multi-item iOS drags
              aren't always fully reflected there.
    BUILD v12 (ome-image-crop-v12.html) — 2026-07-22 08:52 AEST
+   ============================================================ */
+
+/* ============================================================
+   Build 13: "Skip" (automatic, for already-correct-ratio photos, and
+             manual, via the Skip button) now adds the original file
+             to the export queue unchanged instead of leaving it out
+             entirely. The zip for a batch is now a complete
+             replacement set — cropped photos plus everything left
+             unchanged — so it can be bulk-copied into a master
+             library and the source folder deleted afterwards without
+             having to work out which originals were already handled.
+             Files that genuinely couldn't be read (handleLoadFailure)
+             are still excluded, since there's nothing valid to add.
+   BUILD v13 (ome-image-crop-v13.html) — 2026-07-22 15:52 AEST
+   ============================================================ */
+
+/* ============================================================
+   Build 14: files that failed to preview (handleLoadFailure) were
+             still being left out of the zip entirely — but the
+             failure was only ever in the browser's <img> decode
+             step; the raw file itself was always still there and
+             fine to copy through, exactly like the already-correct
+             and manually-skipped cases. Now added to the batch
+             unchanged too, same as those, so the zip is a genuinely
+             complete set for every photo loaded, with nothing
+             silently dropped.
+   BUILD v14 (ome-image-crop-v14.html) — 2026-07-22 15:58 AEST
    ============================================================ */
 
 (function () {
@@ -532,7 +563,7 @@ button.btn {
   // ---------- State ----------
   let files = [];
   let index = 0;
-  let counts = { exported: 0, skipped: 0 };
+  let counts = { cropped: 0, unchanged: 0, unreadable: 0 };
   let exportQueue = []; // { blob, name, w, h } — accumulated, then zipped once at the end
   let natural = { w: 0, h: 0 };
   let scale = 1;                          // natural -> displayed
@@ -592,7 +623,7 @@ button.btn {
 
     files = recognized;
     index = 0;
-    counts = { exported: 0, skipped: 0 };
+    counts = { cropped: 0, unchanged: 0, unreadable: 0 };
     exportQueue = [];
     pickerScreen.classList.add('hidden');
     doneScreen.classList.add('hidden');
@@ -718,10 +749,11 @@ button.btn {
   }
 
   function handleLoadFailure(file, reason) {
-    log(`SKIPPED "${file.name}" — ${reason}`);
+    log(`Couldn't preview "${file.name}" (${reason}) — adding to batch unchanged anyway, since the file itself is still fine to copy through`);
     statusFlash.classList.add('warn');
-    statusFlash.textContent = `Skipped "${file.name}" — ${reason}`;
-    counts.skipped++;
+    statusFlash.textContent = `Couldn't preview "${file.name}" — added unchanged`;
+    exportQueue.push({ blob: file, name: file.name, w: 0, h: 0 });
+    counts.unreadable++;
     index++;
     setTimeout(loadCurrent, 300);
   }
@@ -966,10 +998,12 @@ button.btn {
   }
 
   function autoSkipCurrent() {
-    log(`Already correct ratio (${natural.w}×${natural.h}) — skipping "${files[index].name}", no crop needed`);
+    const file = files[index];
+    log(`Already correct ratio (${natural.w}×${natural.h}) — adding "${file.name}" to batch unchanged`);
     statusFlash.classList.remove('warn');
-    statusFlash.textContent = `Already the right shape — skipped`;
-    counts.skipped++;
+    statusFlash.textContent = `Already the right shape — added unchanged`;
+    exportQueue.push({ blob: file, name: file.name, w: natural.w, h: natural.h });
+    counts.unchanged++;
     index++;
     setTimeout(loadCurrent, 150);
   }
@@ -981,15 +1015,17 @@ button.btn {
     statusFlash.textContent = 'Cropping…';
     cropToBlob(rect.sx, rect.sy, rect.sw, rect.sh, files[index], suffix).then((entry) => {
       exportQueue.push(entry);
-      counts.exported++;
+      counts.cropped++;
       log(`Queued "${entry.name}" (${entry.w}×${entry.h}) — ${exportQueue.length} in batch so far`);
       advance();
     });
   }
 
   function skipCurrent() {
-    log(`Skipped by user: "${files[index].name}"`);
-    counts.skipped++;
+    const file = files[index];
+    log(`Skipped crop for "${file.name}" — adding to batch unchanged`);
+    exportQueue.push({ blob: file, name: file.name, w: natural.w, h: natural.h });
+    counts.unchanged++;
     advance();
   }
 
@@ -1035,7 +1071,7 @@ button.btn {
         }
       }
       log(IS_EMBEDDED
-        ? `${exportQueue.length} cropped file(s) ready but can't be saved from inside this preview`
+        ? `${exportQueue.length} file(s) ready but can't be saved from inside this preview`
         : `Downloaded ${exportQueue.length} file(s) individually (no zip)`);
       exportQueue.length = 0;
       return;
@@ -1076,11 +1112,12 @@ button.btn {
     reviewScreen.classList.add('hidden');
     doneScreen.classList.remove('hidden');
     document.getElementById('summary-exported').textContent =
-      `Cropped and zipped: ${counts.exported}`;
+      `Cropped: ${counts.cropped}`;
     document.getElementById('summary-auto').textContent =
-      `Skipped (already correct, or by choice): ${counts.skipped}`;
-    document.getElementById('summary-skipped').textContent = '';
-    log(`Batch finished — exported: ${counts.exported}, skipped: ${counts.skipped}`);
+      `Included unchanged (already correct, or skipped): ${counts.unchanged}`;
+    document.getElementById('summary-skipped').textContent =
+      counts.unreadable ? `Couldn't preview, included as-is anyway: ${counts.unreadable}` : '';
+    log(`Batch finished — cropped: ${counts.cropped}, unchanged: ${counts.unchanged}, unreadable-but-included: ${counts.unreadable}`);
   }
 })();
 </script>
