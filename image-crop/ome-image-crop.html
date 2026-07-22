@@ -1,395 +1,1088 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OME Aspect Ratio Crop Engine</title>
-    <!-- Build v3.5.1 · 2026-07-21 16:25 AEST -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <style>
-        :root {
-            --bg-deep: #0a0a0c;
-            --bg-surface: #16161a;
-            --bg-card: #202026;
-            --accent: #007aff;
-            --success: #34c759;
-            --warning: #ff9500;
-            --text: #f5f5f7;
-            --text-muted: #86868b;
-            --border: #2c2c35;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-deep); color: var(--text); overflow: hidden;
-            position: fixed; width: 100%; height: 100%; display: flex; flex-direction: column;
-        }
-        header {
-            background: var(--bg-surface); padding: 14px 20px; border-bottom: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center; z-index: 10;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-        }
-        .title h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
-        .title span { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
-        .stats { display: flex; gap: 12px; }
-        .stat-card {
-            background: var(--bg-card); padding: 6px 12px; border-radius: 8px;
-            border: 1px solid var(--border); font-size: 13px; font-weight: 500;
-        }
-        .stat-card span { font-weight: 700; margin-left: 4px; }
-        #main-container { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #020203; overflow: hidden; width: 100%; }
-        
-        #viewport-wrapper { 
-            position: relative; display: none; 
-            max-width: 90vw; max-height: calc(100vh - 260px);
-            filter: drop-shadow(0 12px 30px rgba(0,0,0,0.7)); 
-        }
-        #display-image { 
-            max-width: 90vw; max-height: calc(100vh - 260px); 
-            display: block; pointer-events: none; object-fit: contain;
-        }
-        
-        #crop-overlay {
-            position: absolute; border: 2px solid var(--accent);
-            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.78); cursor: move; touch-action: none;
-        }
-        #crop-overlay::before, #crop-overlay::after {
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; border-color: rgba(255,255,255,0.15); border-style: dashed; border-width: 0;
-        }
-        #crop-overlay::before { border-left-width: 33.33%; border-right-width: 33.33%; }
-        #crop-overlay::after { border-top-width: 33.33%; border-bottom-width: 33.33%; }
-        
-        .handle {
-            position: absolute; width: 32px; height: 32px; background: var(--text);
-            border: 4px solid var(--accent); border-radius: 50%; z-index: 5;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-        }
-        .tl { top: -16px; left: -16px; cursor: nwse-resize; }
-        .tr { top: -16px; right: -16px; cursor: nesw-resize; }
-        .bl { bottom: -16px; left: -16px; cursor: nesw-resize; }
-        .br { bottom: -16px; right: -16px; cursor: nwse-resize; }
-        
-        #setup { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 30px; text-align: center; max-width: 500px; }
-        .picker-btn {
-            background: var(--accent); color: #fff; font-weight: 600; padding: 16px 36px;
-            border-radius: 14px; border: none; font-size: 17px; cursor: pointer;
-        }
-        
-        #controls {
-            background: var(--bg-surface); padding: 14px 24px; border-top: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center; z-index: 10; gap: 10px;
-        }
-        .action-btn {
-            background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
-            padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 15px;
-            cursor: pointer; min-width: 110px; text-align: center;
-        }
-        .action-btn.primary { background: var(--success); border-color: var(--success); color: #fff; }
-        .action-btn.zip-btn { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .toggle-btn { background: #3a3a44; font-size: 13px; min-width: 90px; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>ome-image-crop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* ── Reset & Variables ──────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-        #logger {
-            height: 95px; background: #050507; border-top: 1px solid var(--border);
-            font-family: monospace; font-size: 11px; padding: 10px 16px;
-            overflow-y: scroll; color: #a1a1aa; user-select: text; -webkit-user-select: text;
-        }
-        .log-line { margin-bottom: 4px; line-height: 1.5; }
-    </style>
+:root {
+  --gold:    #f5c842;
+  --gold2:   #e0a800;
+  --bg:      #0a0a14;
+  --surface: #12121f;
+  --card:    #1a1a2e;
+  --border:  rgba(255,255,255,0.08);
+  --text:    #e8e8f0;
+  --muted:   #6b6b8a;
+  --green:   #2ed573;
+  --red:     #ff4757;
+  --blue:    #4ecdc4;
+  --accent:  #7c3aed;
+}
+
+html { min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── Nav Bar ────────────────────────────────────────────── */
+.nav {
+  position: relative; z-index: 100;
+  flex-shrink: 0;
+  background: rgba(10,10,20,0.97);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; height: 56px;
+  gap: 8px;
+}
+.nav-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1em; font-weight: 900;
+  color: var(--gold); letter-spacing: 0.12em;
+  position: relative; cursor: default;
+  flex-shrink: 0;
+}
+.nav-title::after {
+  content: attr(data-version);
+  position: absolute;
+  top: calc(100% + 10px); left: 0;
+  background: rgba(10,10,20,0.97);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.65em; font-weight: 400;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  padding: 5px 10px; border-radius: 6px;
+  opacity: 0; pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 999;
+}
+.nav-title:hover::after, .nav-title.tip-show::after { opacity: 1; transform: translateY(0); }
+
+.nav-actions { display: flex; gap: 8px; align-items: center; }
+.nav-btn {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px;
+  padding: 6px 12px; font-family: 'DM Sans', sans-serif;
+  font-size: 0.78em; font-weight: 600; letter-spacing: 0.04em;
+  cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+}
+.nav-btn:hover, .nav-btn.on { border-color: var(--blue); color: var(--blue); }
+
+.hidden { display: none !important; }
+
+/* ── Screens ────────────────────────────────────────────── */
+#picker-screen, #done-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 20px;
+  text-align: center;
+  gap: 18px;
+}
+#review-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+button.btn {
+  font-family: 'DM Sans', sans-serif;
+  border: none;
+  border-radius: 10px;
+  padding: 14px 22px;
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-primary { background: var(--gold); color: #14140a; }
+.btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+
+#file-input { display: none; }
+
+.import-header h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.4em; letter-spacing: 0.08em;
+  color: var(--text);
+}
+.import-header h1 span { color: var(--gold); }
+.hint { font-size: 0.85em; color: var(--muted); max-width: 340px; line-height: 1.5; }
+
+#progress {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85em;
+  color: var(--muted);
+  padding: 10px 16px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+}
+#progress #ratio-toggle {
+  font-family: 'DM Sans', sans-serif;
+  color: var(--gold); font-weight: 700; font-size: 1em;
+  background: transparent; border: 1px dashed rgba(245,200,66,0.4);
+  border-radius: 6px; padding: 2px 8px; cursor: pointer;
+}
+#progress #ratio-toggle:active { background: rgba(245,200,66,0.12); }
+
+#status-flash {
+  font-size: 0.75em;
+  color: var(--green);
+  min-height: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  padding-bottom: 4px;
+}
+#status-flash.warn { color: var(--red); }
+
+#stage-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 0;
+  padding: 8px;
+}
+#stage {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  touch-action: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+#photo {
+  display: block;
+  max-width: 92vw;
+  max-height: 54vh;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+  background: #000;
+}
+#crop-box {
+  position: absolute;
+  border: 2px solid var(--blue);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);
+  touch-action: none;
+  cursor: grab;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+#crop-box.dragging { cursor: grabbing; }
+#crop-box::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255,255,255,0.4);
+  pointer-events: none;
+}
+#crop-box .grid-line {
+  position: absolute;
+  background: rgba(255,255,255,0.5);
+  pointer-events: none;
+}
+#crop-box .grid-line.v { top: 0; bottom: 0; width: 1px; }
+#crop-box .grid-line.h { left: 0; right: 0; height: 1px; }
+.handle {
+  position: absolute;
+  width: 40px; height: 40px; margin: -20px;
+  touch-action: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.handle::after {
+  content: "";
+  width: 14px; height: 14px;
+  background: var(--blue);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.handle[data-corner="tl"] { left: 0; top: 0; }
+.handle[data-corner="tr"] { right: 0; top: 0; left: auto; }
+.handle[data-corner="bl"] { left: 0; bottom: 0; top: auto; }
+.handle[data-corner="br"] { right: 0; bottom: 0; left: auto; top: auto; }
+
+#controls {
+  flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding: 14px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+#controls .btn { flex: 1; max-width: 200px; }
+
+.summary-line { font-size: 1em; margin: 2px 0; }
+.summary-line b { color: var(--gold); }
+
+.nav-badge {
+  font-family: 'DM Sans', sans-serif; font-size: 0.68em; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--bg); background: var(--gold);
+  border-radius: 6px; padding: 3px 8px;
+}
+
+#drop-overlay {
+  position: fixed; inset: 0;
+  z-index: 900;
+  background: rgba(245,200,66,0.12);
+  border: 4px dashed var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+#drop-overlay span {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8em; letter-spacing: 0.08em;
+  color: var(--gold);
+  background: rgba(10,10,20,0.88);
+  padding: 16px 32px; border-radius: 12px;
+  text-align: center;
+}
+
+/* ── Debug Console ──────────────────────────────────────── */
+#debug-console {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  max-height: 42vh;
+  background: rgba(8,8,16,0.98);
+  border-top: 1px solid var(--gold);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+#debug-console-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#debug-console-header span { font-family: 'DM Sans', sans-serif; font-size: 0.8em; color: var(--gold); font-weight: 700; }
+#debug-console-header .row { display: flex; gap: 6px; }
+#debug-console-header button {
+  background: var(--card); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 6px; padding: 4px 10px; font-size: 0.72em; cursor: pointer;
+}
+#debug-log {
+  flex: 1; overflow-y: auto;
+  font-family: 'SF Mono', 'Courier New', monospace;
+  font-size: 0.72em; line-height: 1.5;
+  color: #b8bcc8;
+  padding: 8px 12px;
+  white-space: pre-wrap; word-break: break-word;
+}
+</style>
 </head>
 <body>
-    <header>
-        <div class="title">
-            <h1>IMAGE ASPECT RATIO TOOL</h1>
-            <span>Build v3.5.1 · Batch ZIP Export</span>
-        </div>
-        <div class="stats">
-            <div class="stat-card">Index: <span id="s-prog" style="color:var(--accent)">0 / 0</span></div>
-            <div class="stat-card">Staged: <span id="s-save" style="color:var(--success)">0</span></div>
-            <div class="stat-card">Skipped: <span id="s-skip" style="color:var(--warning)">0</span></div>
-        </div>
-    </header>
 
-    <div id="main-container">
-        <div id="setup">
-            <p style="color: var(--text-muted); font-size: 15px; line-height: 1.6;">
-                Locally standardizes media libraries to explicit 4:3 or 3:4 aspect proportions. Native matching targets skip computational processing automatically.
-            </p>
-            <button class="picker-btn" onclick="document.getElementById('f-in').click()">Open Photo Picker</button>
-            <input type="file" id="f-in" accept="image/*" multiple style="display:none">
-        </div>
+<div class="nav">
+  <span class="nav-title" data-version="Build v12 · 2026-07-22 08:52 AEST">OME IMAGE CROP</span>
+  <div class="nav-actions">
+    <span class="nav-badge hidden" id="preview-badge">Preview mode</span>
+    <button class="nav-btn" id="console-toggle">Console</button>
+  </div>
+</div>
 
-        <div id="viewport-wrapper">
-            <img id="display-image" alt="Active Frame Buffer">
-            <div id="crop-overlay">
-                <div class="handle tl" data-h="tl"></div><div class="handle tr" data-h="tr"></div>
-                <div class="handle bl" data-h="bl"></div><div class="handle br" data-h="br"></div>
-            </div>
-        </div>
+<!-- ===================== Photo Loader ===================== -->
+<div id="picker-screen">
+  <div class="import-header"><h1>Image <span>Crop</span></h1></div>
+  <p class="hint">
+    Select photos to review, or drag them in from another app (Photos, Files —
+    Split View or Stage Manager works). To drag more than one at once, long-press
+    the first photo, then tap others with a second finger to stack them before
+    dropping. Anything already 4:3 or 3:4 is skipped automatically
+    &mdash; everything else opens for a quick crop check.
+    Drag the box to move it, drag a corner dot or pinch to resize it, tap the
+    ratio label to switch between 4:3 and 3:4. Everything cropped gets bundled
+    into one zip file at the end, so you only get one save prompt for the batch.
+  </p>
+  <button class="btn btn-primary" id="pick-btn">Select Photos</button>
+  <input type="file" id="file-input" accept="image/*,.heic,.heif" multiple>
+</div>
+
+<!-- ===================== Review Screen ===================== -->
+<div id="review-screen" class="hidden">
+  <div id="progress">
+    <span id="progress-text">Photo 1 / 1</span>
+    <button id="ratio-toggle" type="button">Landscape → 4:3 (tap to switch)</button>
+  </div>
+  <div id="stage-wrap">
+    <div id="stage">
+      <img id="photo" alt="" draggable="false">
+      <div id="crop-box">
+        <div class="grid-line v" style="left:33.333%"></div>
+        <div class="grid-line v" style="left:66.667%"></div>
+        <div class="grid-line h" style="top:33.333%"></div>
+        <div class="grid-line h" style="top:66.667%"></div>
+        <div class="handle" data-corner="tl"></div>
+        <div class="handle" data-corner="tr"></div>
+        <div class="handle" data-corner="bl"></div>
+        <div class="handle" data-corner="br"></div>
+      </div>
     </div>
+  </div>
+  <div id="status-flash"></div>
+  <div id="controls">
+    <button class="btn btn-secondary" id="skip-btn">Skip (S)</button>
+    <button class="btn btn-primary" id="save-btn">Save &amp; Next (⏎)</button>
+  </div>
+</div>
 
-    <div id="controls">
-        <button class="action-btn" onclick="skipPhoto()">Skip Frame</button>
-        <button class="action-btn toggle-btn" onclick="toggleConsole()" id="btn-toggle-log">Hide Log</button>
-        <button class="action-btn zip-btn" id="btn-zip" onclick="downloadZip()" style="display:none">Download ZIP</button>
-        <button class="action-btn primary" id="btn-commit" onclick="saveCrop()">Commit Crop</button>
+<!-- ===================== Done Screen ===================== -->
+<div id="done-screen" class="hidden">
+  <div class="import-header"><h1>All <span>Done</span></h1></div>
+  <p class="summary-line" id="summary-exported"></p>
+  <p class="summary-line" id="summary-auto"></p>
+  <p class="summary-line" id="summary-skipped"></p>
+  <p class="hint" id="download-hint">Cropped photos were bundled into one zip file in your browser's
+    Downloads folder, keeping original capture date/GPS/camera info where possible. Originals are untouched.</p>
+  <button class="btn btn-primary" id="restart-btn">Select More Photos</button>
+</div>
+
+<!-- ===================== Drop Overlay ===================== -->
+<div id="drop-overlay" class="hidden"><span>Drop photos to add them</span></div>
+
+<!-- ===================== Debug Console ===================== -->
+<div id="debug-console" class="hidden">
+  <div id="debug-console-header">
+    <span>DEBUG CONSOLE</span>
+    <div class="row">
+      <button id="console-copy">Copy</button>
+      <button id="console-clear">Clear</button>
+      <button id="console-close">Close</button>
     </div>
+  </div>
+  <div id="debug-log"></div>
+</div>
 
-    <div id="logger"></div>
+<script>
+/* ============================================================
+   OME Image Crop
+   Build 12: only one photo was coming through on drag-and-drop.
+             Mostly a gesture issue, not a code one — a plain
+             single-finger drag on iPad only ever carries one photo;
+             getting more requires the "stack" gesture (long-press
+             the first photo, then tap additional ones with a second
+             finger before dropping), or multi-selecting first via
+             Select then dragging one of the selected thumbnails. That
+             tip is now in the picker-screen hint directly. Also
+             tightened the drop handler itself to read
+             dataTransfer.items (falling back to .files) rather than
+             relying on .files alone, since multi-item iOS drags
+             aren't always fully reflected there.
+   BUILD v12 (ome-image-crop-v12.html) — 2026-07-22 08:52 AEST
+   ============================================================ */
 
-    <script>
-        let files = [], idx = 0, saved = 0, skipped = 0;
-        let ratio = 1.333, imgW = 0, imgH = 0, scale = 1;
-        let croppedQueue = [];
-        const box = { x: 0, y: 0, w: 0, h: 0 };
-        const ov = document.getElementById('crop-overlay');
-        const img = document.getElementById('display-image');
-        const wrapper = document.getElementById('viewport-wrapper');
-        const setup = document.getElementById('setup');
+(function () {
+  "use strict";
 
-        document.getElementById('f-in').addEventListener('change', (e) => {
-            files = Array.from(e.target.files); if (!files.length) return;
-            idx = 0; saved = 0; skipped = 0; croppedQueue = [];
-            document.getElementById('btn-zip').style.display = 'none';
-            document.getElementById('btn-commit').style.display = 'block';
-            setup.style.display = 'none'; wrapper.style.display = 'block';
-            log(`Pipeline initialized: ${files.length} items loaded.`, '#34c759');
-            nextItem();
-        });
+  // ---------- Debug Console ----------
+  const debugConsole  = document.getElementById('debug-console');
+  const debugLogEl    = document.getElementById('debug-log');
+  const consoleToggle = document.getElementById('console-toggle');
+  const consoleClose   = document.getElementById('console-close');
+  const consoleClear  = document.getElementById('console-clear');
+  const consoleCopy   = document.getElementById('console-copy');
+  let logLines = [];
 
-        function log(m, color = '') {
-            const p = document.getElementById('logger');
-            p.innerHTML += `<div class="log-line" style="color:${color}">[${new Date().toLocaleTimeString()}] ${m}</div>`;
-            p.scrollTop = p.scrollHeight;
+  function log(msg) {
+    const t = new Date().toLocaleTimeString('en-AU', { hour12: false });
+    logLines.push(`[${t}] ${msg}`);
+    if (logLines.length > 400) logLines.shift();
+    renderLog();
+  }
+  function renderLog() {
+    debugLogEl.textContent = logLines.join('\n');
+    debugLogEl.scrollTop = debugLogEl.scrollHeight;
+  }
+  function toggleConsole(show) {
+    debugConsole.classList.toggle('hidden', !show);
+    consoleToggle.classList.toggle('on', show);
+    if (show) renderLog();
+  }
+  consoleToggle.addEventListener('click', () => toggleConsole(debugConsole.classList.contains('hidden')));
+  consoleClose.addEventListener('click', () => toggleConsole(false));
+  consoleClear.addEventListener('click', () => { logLines = []; renderLog(); });
+  consoleCopy.addEventListener('click', () => {
+    const text = logLines.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        consoleCopy.textContent = 'Copied';
+        setTimeout(() => { consoleCopy.textContent = 'Copy'; }, 1200);
+      }).catch(() => {});
+    }
+  });
+  window.addEventListener('error', (e) => log(`JS ERROR: ${e.message}`));
+
+  // ---------- Embedded/preview detection ----------
+  const IS_EMBEDDED = (function () {
+    try { return window.self !== window.top; } catch (e) { return true; }
+  })();
+
+  if (IS_EMBEDDED) {
+    document.getElementById('preview-badge').classList.remove('hidden');
+    log('Running embedded (Claude preview) — real downloads unavailable; the export queue and zip build will still run so the rest of the flow can be tested');
+  }
+
+  // ---------- Crop Calculator ----------
+  const TARGET_LANDSCAPE = 4 / 3;
+  const TARGET_PORTRAIT  = 3 / 4;
+  const TOLERANCE        = 0.02; // 2% — already-close-enough ratios skip review
+  const MIN_BOX_FRAC     = 0.15; // smallest allowed crop box, as a fraction of display size
+  const IMG_EXT_RE       = /\.(jpe?g|png|heic|heif|gif|bmp|tiff?|webp)$/i;
+
+  function targetRatioFor(w, h) {
+    return w >= h ? TARGET_LANDSCAPE : TARGET_PORTRAIT;
+  }
+
+  function isCloseEnough(w, h) {
+    const r = w / h;
+    const t = targetRatioFor(w, h);
+    return Math.abs(r - t) / t <= TOLERANCE;
+  }
+
+  // Maximal centred crop box in NATURAL pixel coordinates.
+  function defaultCropBoxNatural(w, h, ratioOverride) {
+    const t = ratioOverride || targetRatioFor(w, h);
+    const r = w / h;
+    if (r > t) {
+      const newW = Math.round(h * t);
+      return { x: Math.round((w - newW) / 2), y: 0, w: newW, h: h };
+    } else {
+      const newH = Math.round(w / t);
+      return { x: 0, y: Math.round((h - newH) / 2), w: w, h: newH };
+    }
+  }
+
+  function distance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  // ---------- EXIF/ICC preservation (Export Manager) ----------
+  function readAsArrayBuffer(fileOrBlob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(r.error || new Error('read failed'));
+      r.readAsArrayBuffer(fileOrBlob);
+    });
+  }
+  // Pulls the EXIF (APP1) and ICC profile (APP2) segments out of a
+  // JPEG's raw bytes so they can be carried over onto the cropped
+  // export. JFIF (APP0) is deliberately skipped — canvas.toBlob()
+  // already writes its own. Bails out safely (returns []) on
+  // anything that isn't a well-formed JPEG marker sequence.
+  function extractExifSegments(buffer) {
+    try {
+      const dv = new DataView(buffer);
+      if (dv.getUint16(0) !== 0xFFD8) return [];
+      let offset = 2;
+      const segments = [];
+      while (offset < dv.byteLength - 4) {
+        const marker = dv.getUint16(offset);
+        if ((marker & 0xFF00) !== 0xFF00) break;
+        if (marker === 0xFFD9 || marker === 0xFFDA) break;
+        const len = dv.getUint16(offset + 2);
+        if (marker === 0xFFE1 || marker === 0xFFE2) {
+          segments.push(buffer.slice(offset, offset + 2 + len));
+        }
+        offset += 2 + len;
+      }
+      return segments;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ---------- State ----------
+  let files = [];
+  let index = 0;
+  let counts = { exported: 0, skipped: 0 };
+  let exportQueue = []; // { blob, name, w, h } — accumulated, then zipped once at the end
+  let natural = { w: 0, h: 0 };
+  let scale = 1;                          // natural -> displayed
+  let box = { x: 0, y: 0, w: 0, h: 0 };   // displayed px, relative to #stage
+  let currentTargetRatio = TARGET_LANDSCAPE;
+
+  let pointers = new Map();
+  let mode = null;            // 'drag' | 'resize' | 'pinch'
+  let resizeCorner = null;
+  let dragStart = null;
+  let resizeStart = null;
+  let pinchStart = null;
+
+  // ---------- Elements ----------
+  const pickerScreen  = document.getElementById('picker-screen');
+  const reviewScreen  = document.getElementById('review-screen');
+  const doneScreen    = document.getElementById('done-screen');
+  const pickBtn       = document.getElementById('pick-btn');
+  const fileInput     = document.getElementById('file-input');
+  const progressText  = document.getElementById('progress-text');
+  const ratioToggle   = document.getElementById('ratio-toggle');
+  const stageWrap     = document.getElementById('stage-wrap');
+  const stage         = document.getElementById('stage');
+  const photoEl       = document.getElementById('photo');
+  const cropBoxEl     = document.getElementById('crop-box');
+  const statusFlash   = document.getElementById('status-flash');
+  const saveBtn       = document.getElementById('save-btn');
+  const skipBtn       = document.getElementById('skip-btn');
+  const restartBtn    = document.getElementById('restart-btn');
+
+  // Belt-and-suspenders: some browsers can still attempt native
+  // drag-and-drop on images/elements inside the stage even with
+  // draggable="false" set. Block it outright.
+  stage.addEventListener('dragstart', (e) => e.preventDefault());
+
+  // ---------- Photo Loader ----------
+  pickBtn.addEventListener('click', () => fileInput.click());
+
+  // Shared by both the file picker and drag-and-drop from another app.
+  function handleIncomingFiles(fileList) {
+    const picked = Array.from(fileList || []);
+    const recognized = picked.filter(f => {
+      const looksLikeImage = f.type.startsWith('image/') || IMG_EXT_RE.test(f.name);
+      if (!looksLikeImage) log(`Filtered out (not recognised as an image): "${f.name}" (type: "${f.type}")`);
+      return looksLikeImage;
+    });
+    log(`Received ${picked.length} file(s), ${recognized.length} recognised as images`);
+    if (!recognized.length) return;
+
+    if (!reviewScreen.classList.contains('hidden')) {
+      // Already mid-batch — add these to the current queue rather
+      // than starting over.
+      files = files.concat(recognized);
+      log(`Added to current batch — ${files.length} total now`);
+      return;
+    }
+
+    files = recognized;
+    index = 0;
+    counts = { exported: 0, skipped: 0 };
+    exportQueue = [];
+    pickerScreen.classList.add('hidden');
+    doneScreen.classList.add('hidden');
+    reviewScreen.classList.remove('hidden');
+    loadCurrent();
+  }
+
+  fileInput.addEventListener('change', (e) => {
+    handleIncomingFiles(e.target.files);
+    fileInput.value = '';
+  });
+
+  restartBtn.addEventListener('click', () => {
+    fileInput.value = '';
+    doneScreen.classList.add('hidden');
+    pickerScreen.classList.remove('hidden');
+  });
+
+  // ---------- Drag-and-drop from another app ----------
+  // On iPad (Split View / Stage Manager), Safari and Chrome (which
+  // shares Safari's engine on iOS) both support dragging files in
+  // from Photos, Files, etc. Without a drop handler the browser's
+  // default behaviour is to navigate to the dropped file, so this is
+  // also a safety fix, not just a convenience feature.
+  const dropOverlay = document.getElementById('drop-overlay');
+  let dragDepth = 0;
+
+  function isFileDrag(e) {
+    return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+  }
+
+  window.addEventListener('dragenter', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    dropOverlay.classList.remove('hidden');
+  });
+  window.addEventListener('dragover', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+  });
+  window.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropOverlay.classList.add('hidden');
+  });
+  window.addEventListener('drop', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    dropOverlay.classList.add('hidden');
+
+    // Prefer reading items directly — on iOS, multi-item drags
+    // (stacked photos) aren't always fully reflected in .files.
+    let dropped = [];
+    if (e.dataTransfer.items && e.dataTransfer.items.length) {
+      for (const item of e.dataTransfer.items) {
+        if (item.kind === 'file') {
+          const f = item.getAsFile();
+          if (f) dropped.push(f);
+        }
+      }
+    }
+    if (!dropped.length && e.dataTransfer.files && e.dataTransfer.files.length) {
+      dropped = Array.from(e.dataTransfer.files);
+    }
+
+    if (dropped.length) {
+      log(`Drop received: ${dropped.length} file(s)`);
+      handleIncomingFiles(dropped);
+    } else {
+      log('Drop received but no files were in it — some apps hand over an image reference rather than a real file; Photos and Files app both work fine as a source');
+    }
+  });
+
+  function loadCurrent() {
+    if (index >= files.length) { finish(); return; }
+    progressText.textContent = `Photo ${index + 1} / ${files.length}`;
+    statusFlash.classList.remove('warn');
+    statusFlash.textContent = '';
+
+    const file = files[index];
+    log(`Loading [${index + 1}/${files.length}] "${file.name}" (type: "${file.type}", ${Math.round(file.size / 1024)} KB)`);
+
+    // Data URI, not a blob: URL — blob: URLs don't reliably resolve on
+    // WebKit when this page is opened as a local file:// document,
+    // which was causing every photo to fail near-instantly.
+    const reader = new FileReader();
+    reader.onerror = () => {
+      handleLoadFailure(file, `could not be read from disk (${reader.error ? reader.error.name : 'unknown error'})`);
+    };
+    reader.onload = () => {
+      const dataUrl = reader.result;
+
+      photoEl.onload = () => {
+        natural.w = photoEl.naturalWidth;
+        natural.h = photoEl.naturalHeight;
+
+        if (!natural.w || !natural.h) {
+          handleLoadFailure(file, 'loaded but returned no dimensions');
+          return;
         }
 
-        function toggleConsole() {
-            const panel = document.getElementById('logger');
-            const btn = document.getElementById('btn-toggle-log');
-            if (panel.style.display === 'none') {
-                panel.style.display = 'block'; btn.innerText = 'Hide Log';
-            } else {
-                panel.style.display = 'none'; btn.innerText = 'Show Log';
-            }
+        log(`Loaded OK — ${natural.w}×${natural.h}`);
+
+        if (isCloseEnough(natural.w, natural.h)) {
+          autoSkipCurrent();
+          return;
         }
 
-        function extractExif(buffer) {
-            try {
-                const dv = new DataView(buffer);
-                if (dv.getUint16(0) !== 0xFFD8) return [];
-                let offset = 2, segments = [];
-                while (offset < dv.byteLength - 4) {
-                    const marker = dv.getUint16(offset);
-                    if (marker === 0xFFD9 || marker === 0xFFDA) break;
-                    const len = dv.getUint16(offset + 2);
-                    if (marker >= 0xFFE0 && marker <= 0xFFEF) {
-                        segments.push(buffer.slice(offset, offset + 2 + len));
-                    }
-                    offset += 2 + len;
-                }
-                return segments;
-            } catch (e) { return []; }
+        currentTargetRatio = targetRatioFor(natural.w, natural.h);
+        ratioToggle.textContent = natural.w >= natural.h
+          ? 'Landscape → 4:3 (tap to switch)' : 'Portrait → 3:4 (tap to switch)';
+        layoutStage(true);
+      };
+
+      photoEl.onerror = () => {
+        handleLoadFailure(file, 'browser could not decode this file (unsupported format or corrupt)');
+      };
+
+      photoEl.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleLoadFailure(file, reason) {
+    log(`SKIPPED "${file.name}" — ${reason}`);
+    statusFlash.classList.add('warn');
+    statusFlash.textContent = `Skipped "${file.name}" — ${reason}`;
+    counts.skipped++;
+    index++;
+    setTimeout(loadCurrent, 300);
+  }
+
+  // ---------- Canvas Renderer ----------
+  // isNewPhoto: true when called for a freshly loaded photo (resets
+  // the crop box to its default centred position/size at full
+  // available size). false when re-laying out an already-open photo
+  // (e.g. on resize) — rescales the existing box proportionally
+  // instead of resetting it. Image sizing itself is left entirely to
+  // CSS (max-width/max-height with width/height:auto preserves the
+  // intrinsic aspect ratio — it cannot distort). This function only
+  // measures the result and positions the crop box to match.
+  function layoutStage(isNewPhoto) {
+    const rect = photoEl.getBoundingClientRect();
+    const dispW = Math.round(rect.width);
+    const dispH = Math.round(rect.height);
+
+    if (!dispW || !dispH) {
+      requestAnimationFrame(() => layoutStage(isNewPhoto));
+      return;
+    }
+
+    const newScale = dispW / natural.w;
+
+    if (isNewPhoto || !scale) {
+      const nBox = defaultCropBoxNatural(natural.w, natural.h, currentTargetRatio);
+      box = {
+        x: Math.round(nBox.x * newScale), y: Math.round(nBox.y * newScale),
+        w: Math.round(nBox.w * newScale), h: Math.round(nBox.h * newScale)
+      };
+    } else if (Math.abs(newScale - scale) > 0.001) {
+      const ratio = newScale / scale;
+      box = { x: box.x * ratio, y: box.y * ratio, w: box.w * ratio, h: box.h * ratio };
+    }
+
+    scale = newScale;
+    clampBox();
+    renderBox();
+  }
+
+  let resizeRaf = null;
+  window.addEventListener('resize', () => {
+    if (reviewScreen.classList.contains('hidden') || !natural.w) return;
+    if (resizeRaf) cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => layoutStage(false));
+  });
+
+  ratioToggle.addEventListener('click', () => {
+    currentTargetRatio = (currentTargetRatio === TARGET_LANDSCAPE) ? TARGET_PORTRAIT : TARGET_LANDSCAPE;
+    ratioToggle.textContent = currentTargetRatio === TARGET_LANDSCAPE
+      ? '4:3 (tap to switch back)' : '3:4 (tap to switch back)';
+    log(`Ratio manually switched to ${currentTargetRatio === TARGET_LANDSCAPE ? '4:3' : '3:4'}`);
+    const nBox = defaultCropBoxNatural(natural.w, natural.h, currentTargetRatio);
+    box = {
+      x: Math.round(nBox.x * scale), y: Math.round(nBox.y * scale),
+      w: Math.round(nBox.w * scale), h: Math.round(nBox.h * scale)
+    };
+    clampBox();
+    renderBox();
+  });
+
+  function renderBox() {
+    cropBoxEl.style.left = box.x + 'px';
+    cropBoxEl.style.top = box.y + 'px';
+    cropBoxEl.style.width = box.w + 'px';
+    cropBoxEl.style.height = box.h + 'px';
+  }
+
+  function clampBox() {
+    const dispW = Math.round(natural.w * scale);
+    const dispH = Math.round(natural.h * scale);
+    box.x = Math.max(0, Math.min(box.x, dispW - box.w));
+    box.y = Math.max(0, Math.min(box.y, dispH - box.h));
+  }
+
+  // ---------- Touch Controller ----------
+  stage.addEventListener('pointerdown', (e) => {
+    if (!natural.w) return;
+    stage.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size === 2) {
+      mode = 'pinch';
+      const pts = Array.from(pointers.values());
+      pinchStart = { box: { ...box }, dist: distance(pts[0], pts[1]) };
+      cropBoxEl.classList.add('dragging');
+      return;
+    }
+
+    if (pointers.size === 1) {
+      const handle = e.target.closest('.handle');
+      if (handle) {
+        mode = 'resize';
+        resizeCorner = handle.dataset.corner;
+        resizeStart = { box: { ...box }, x: e.clientX, y: e.clientY };
+        e.stopPropagation();
+      } else if (e.target === cropBoxEl) {
+        mode = 'drag';
+        dragStart = { x: box.x, y: box.y, px: e.clientX, py: e.clientY };
+      }
+      cropBoxEl.classList.add('dragging');
+    }
+  });
+
+  stage.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (mode === 'pinch' && pointers.size === 2) {
+      const pts = Array.from(pointers.values());
+      const dist = distance(pts[0], pts[1]);
+      applyPinchResize(dist / pinchStart.dist);
+    } else if (mode === 'drag') {
+      box.x = dragStart.x + (e.clientX - dragStart.px);
+      box.y = dragStart.y + (e.clientY - dragStart.py);
+      clampBox();
+      renderBox();
+    } else if (mode === 'resize') {
+      applyCornerResize(resizeCorner, e.clientX - resizeStart.x, e.clientY - resizeStart.y, resizeStart.box);
+    }
+  });
+
+  function endPointer(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2 && mode === 'pinch') mode = null;
+    if (pointers.size === 0) {
+      mode = null;
+      cropBoxEl.classList.remove('dragging');
+    }
+  }
+  stage.addEventListener('pointerup', endPointer);
+  stage.addEventListener('pointercancel', endPointer);
+
+  function applyPinchResize(factor) {
+    const dispW = Math.round(natural.w * scale);
+    const dispH = Math.round(natural.h * scale);
+    const cx = pinchStart.box.x + pinchStart.box.w / 2;
+    const cy = pinchStart.box.y + pinchStart.box.h / 2;
+
+    const minW = Math.max(40, dispW * MIN_BOX_FRAC);
+    const maxW = Math.min(dispW, dispH * currentTargetRatio);
+    let newW = Math.min(Math.max(pinchStart.box.w * factor, minW), maxW);
+    let newH = newW / currentTargetRatio;
+
+    let x = cx - newW / 2;
+    let y = cy - newH / 2;
+    x = Math.max(0, Math.min(x, dispW - newW));
+    y = Math.max(0, Math.min(y, dispH - newH));
+
+    box = { x, y, w: newW, h: newH };
+    renderBox();
+  }
+
+  function applyCornerResize(corner, dx, dy, init) {
+    const dispW = Math.round(natural.w * scale);
+    const dispH = Math.round(natural.h * scale);
+
+    let anchorX, anchorY, growRight, growDown;
+    switch (corner) {
+      case 'br': anchorX = init.x;          anchorY = init.y;          growRight = true;  growDown = true;  break;
+      case 'bl': anchorX = init.x + init.w; anchorY = init.y;          growRight = false; growDown = true;  break;
+      case 'tr': anchorX = init.x;          anchorY = init.y + init.h; growRight = true;  growDown = false; break;
+      case 'tl': anchorX = init.x + init.w; anchorY = init.y + init.h; growRight = false; growDown = false; break;
+      default: return;
+    }
+
+    let newW = init.w + (growRight ? dx : -dx);
+    const minW = Math.max(40, dispW * MIN_BOX_FRAC);
+    const availW = growRight ? (dispW - anchorX) : anchorX;
+    const availH = growDown ? (dispH - anchorY) : anchorY;
+    const maxW = Math.min(availW, availH * currentTargetRatio);
+    newW = Math.min(Math.max(newW, minW), maxW);
+    const newH = newW / currentTargetRatio;
+
+    box = {
+      x: growRight ? anchorX : anchorX - newW,
+      y: growDown ? anchorY : anchorY - newH,
+      w: newW,
+      h: newH
+    };
+    renderBox();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (reviewScreen.classList.contains('hidden')) return;
+    const step = e.shiftKey ? 24 : 8;
+    switch (e.key) {
+      case 'ArrowLeft':  box.x -= step; clampBox(); renderBox(); e.preventDefault(); return;
+      case 'ArrowRight': box.x += step; clampBox(); renderBox(); e.preventDefault(); return;
+      case 'ArrowUp':    box.y -= step; clampBox(); renderBox(); e.preventDefault(); return;
+      case 'ArrowDown':  box.y += step; clampBox(); renderBox(); e.preventDefault(); return;
+      case 'Enter':      e.preventDefault(); saveCurrent(); return;
+      case 's': case 'S': e.preventDefault(); skipCurrent(); return;
+      case 'r': case 'R': {
+        layoutStage(true);
+        e.preventDefault();
+        return;
+      }
+    }
+  });
+
+  // ---------- Export Manager ----------
+  function naturalCropRect() {
+    const inv = 1 / scale;
+    return {
+      sx: Math.round(box.x * inv),
+      sy: Math.round(box.y * inv),
+      sw: Math.round(box.w * inv),
+      sh: Math.round(box.h * inv)
+    };
+  }
+
+  async function cropToBlob(sx, sy, sw, sh, file, suffix) {
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(photoEl, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    const safeName = file.name.replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_');
+    const outName = `${safeName}${suffix}.jpg`;
+
+    let finalBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+
+    const looksLikeJpeg = /image\/jpe?g/i.test(file.type) || /\.(jpe?g)$/i.test(file.name);
+    if (looksLikeJpeg) {
+      try {
+        const origBuffer = await readAsArrayBuffer(file);
+        const segments = extractExifSegments(origBuffer);
+        if (segments.length) {
+          const cropBuffer = await readAsArrayBuffer(finalBlob);
+          finalBlob = new Blob([cropBuffer.slice(0, 2), ...segments, cropBuffer.slice(2)], { type: 'image/jpeg' });
+          log(`Carried over ${segments.length} EXIF/ICC segment(s) from "${file.name}"`);
         }
+      } catch (e) {
+        log(`EXIF preserve skipped for "${file.name}": ${e.message}`);
+      }
+    }
 
-        function nextItem() {
-            const total = files.length;
-            
-            document.getElementById('s-save').innerText = saved;
-            document.getElementById('s-skip').innerText = skipped;
+    return { blob: finalBlob, name: outName, w: sw, h: sh };
+  }
 
-            if (idx >= total) {
-                document.getElementById('s-prog').innerText = `${total} / ${total}`;
-                log("Batch queue complete. Ready for ZIP export.", '#34c759');
-                finishBatch(); 
-                return;
-            }
-            
-            document.getElementById('s-prog').innerText = `${idx + 1} / ${total}`;
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const i = new Image();
-                i.onload = () => {
-                    imgW = i.width; imgH = i.height;
-                    const r = imgW / imgH;
-                    
-                    if (Math.abs(r - 1.333) < 0.03 || Math.abs(r - 0.75) < 0.03) {
-                        log(`Target matches aspect rules. Auto skipped: ${files[idx].name}`, '#ff9500'); 
-                        skipped++; 
-                        idx++; 
-                        nextItem();
-                    } else {
-                        ratio = r > 1 ? 1.333 : 0.75;
-                        img.src = e.target.result;
-                        
-                        setTimeout(() => {
-                            const dispW = img.clientWidth || img.width;
-                            const dispH = img.clientHeight || img.height;
-                            
-                            scale = imgW / dispW;
-                            
-                            if (dispW / dispH > ratio) {
-                                box.h = dispH; box.w = box.h * ratio;
-                            } else {
-                                box.w = dispW; box.h = box.w / ratio;
-                            }
-                            box.x = (dispW - box.w) / 2; box.y = (dispH - box.h) / 2;
-                            draw();
-                        }, 50);
-                    }
-                };
-                i.src = e.target.result;
-            };
-            reader.readAsDataURL(files[idx]);
+  function autoSkipCurrent() {
+    log(`Already correct ratio (${natural.w}×${natural.h}) — skipping "${files[index].name}", no crop needed`);
+    statusFlash.classList.remove('warn');
+    statusFlash.textContent = `Already the right shape — skipped`;
+    counts.skipped++;
+    index++;
+    setTimeout(loadCurrent, 150);
+  }
+
+  function saveCurrent() {
+    const rect = naturalCropRect();
+    const suffix = natural.w >= natural.h ? '-4x3' : '-3x4';
+    statusFlash.classList.remove('warn');
+    statusFlash.textContent = 'Cropping…';
+    cropToBlob(rect.sx, rect.sy, rect.sw, rect.sh, files[index], suffix).then((entry) => {
+      exportQueue.push(entry);
+      counts.exported++;
+      log(`Queued "${entry.name}" (${entry.w}×${entry.h}) — ${exportQueue.length} in batch so far`);
+      advance();
+    });
+  }
+
+  function skipCurrent() {
+    log(`Skipped by user: "${files[index].name}"`);
+    counts.skipped++;
+    advance();
+  }
+
+  function advance() {
+    pointers.clear();
+    mode = null;
+    index++;
+    loadCurrent();
+  }
+
+  saveBtn.addEventListener('click', saveCurrent);
+  skipBtn.addEventListener('click', skipCurrent);
+
+  // Everything cropped during the batch is bundled into a single zip
+  // at the end, rather than downloaded one file at a time — on iOS
+  // each individual download triggers its own "choose where to save"
+  // prompt, which gets old fast over a batch of a dozen+ photos. One
+  // zip means one prompt. JPEGs are already compressed, so entries
+  // use STORE (no re-compression) — it costs real CPU/battery for
+  // negligible size savings otherwise, especially on a phone/tablet.
+  async function buildAndDeliverZip() {
+    if (!exportQueue.length) return;
+
+    const stamp = (() => {
+      const d = new Date();
+      const p = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+    })();
+    const zipName = `ome-image-crop-${stamp}.zip`;
+
+    if (typeof JSZip === 'undefined') {
+      log('JSZip did not load — falling back to individual downloads');
+      statusFlash.textContent = `Zip unavailable — downloading ${exportQueue.length} file(s) individually…`;
+      for (const entry of exportQueue) {
+        if (!IS_EMBEDDED) {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(entry.blob);
+          a.download = entry.name;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
         }
+      }
+      log(IS_EMBEDDED
+        ? `${exportQueue.length} cropped file(s) ready but can't be saved from inside this preview`
+        : `Downloaded ${exportQueue.length} file(s) individually (no zip)`);
+      exportQueue.length = 0;
+      return;
+    }
 
-        function draw() {
-            ov.style.width = box.w + 'px'; ov.style.height = box.h + 'px';
-            ov.style.left = box.x + 'px'; ov.style.top = box.y + 'px';
-        }
+    statusFlash.textContent = 'Building zip…';
+    const zip = new JSZip();
+    for (const entry of exportQueue) {
+      zip.file(entry.name, entry.blob, { binary: true, compression: 'STORE' });
+    }
+    const zipBlob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+      statusFlash.textContent = `Building zip… ${Math.round(meta.percent)}%`;
+    });
+    const sizeMB = (zipBlob.size / 1024 / 1024).toFixed(1);
 
-        function skipPhoto() { 
-            log(`Manual bypass applied to: ${files[idx].name}`); 
-            skipped++; 
-            idx++; 
-            nextItem(); 
-        }
+    if (IS_EMBEDDED) {
+      log(`Zip built (${zipName}, ${sizeMB} MB, ${exportQueue.length} photo(s)) but can't be saved from inside this preview — deploy or open in a real browser`);
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(zipBlob);
+      a.download = zipName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      log(`Downloaded ${zipName} (${sizeMB} MB, ${exportQueue.length} photo(s))`);
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    }
 
-        function saveCrop() {
-            const currentFile = files[idx];
-            const canvas = document.createElement('canvas');
-            canvas.width = box.w * scale; canvas.height = box.h * scale;
-            const ctx = canvas.getContext('2d');
-            const base = new Image();
-            
-            base.onload = () => {
-                ctx.drawImage(base, box.x*scale, box.y*scale, box.w*scale, box.h*scale, 0, 0, canvas.width, canvas.height);
-                
-                const metaReader = new FileReader();
-                metaReader.onload = (me) => {
-                    const origBuffer = me.target.result;
-                    const exifSegments = extractExif(origBuffer);
-                    
-                    canvas.toBlob((blob) => {
-                        const blobReader = new FileReader();
-                        blobReader.onload = (be) => {
-                            const croppedBuffer = be.target.result;
-                            const chunks = [croppedBuffer.slice(0, 2), ...exifSegments, croppedBuffer.slice(2)];
-                            const finalBlob = new Blob(chunks, { type: currentFile.type || 'image/jpeg' });
-                            
-                            const orig = currentFile.name;
-                            const bName = orig.substring(0, orig.lastIndexOf('.')) || orig;
-                            const ext = orig.substring(orig.lastIndexOf('.')) || '.jpg';
-                            const fileName = `${bName}_43crop${ext}`;
+    // Release references so WebKit can reclaim the memory rather than
+    // holding onto every cropped blob for the rest of the session.
+    exportQueue.length = 0;
+  }
 
-                            croppedQueue.push({ name: fileName, blob: finalBlob });
-                            
-                            log(`Staged for ZIP export: ${fileName}`, '#34c759'); 
-                            saved++; 
-                            idx++; 
-                            nextItem();
-                        };
-                        blobReader.readAsArrayBuffer(blob);
-                    }, currentFile.type || 'image/jpeg', 0.94);
-                };
-                metaReader.readAsArrayBuffer(currentFile);
-            };
-            base.src = img.src;
-        }
-
-        function finishBatch() {
-            wrapper.style.display = 'none';
-            document.getElementById('btn-commit').style.display = 'none';
-            
-            if (croppedQueue.length > 0) {
-                document.getElementById('btn-zip').style.display = 'block';
-                log(`Batch ready! ${croppedQueue.length} cropped photo(s) staged in memory. Click 'Download ZIP'.`, '#007aff');
-            } else {
-                log("No cropped images staged for download.", '#ff9500');
-                reset();
-            }
-        }
-
-        function downloadZip() {
-            if (croppedQueue.length === 0) return;
-            log("Packaging images into ZIP archive...", '#007aff');
-            
-            const zip = new JSZip();
-            croppedQueue.forEach(item => {
-                // Compression STORE prevents redundant JPEG compression & saves CPU/RAM
-                zip.file(item.name, item.blob, { compression: "STORE" });
-            });
-
-            zip.generateAsync({ type: 'blob' }).then((zipContent) => {
-                const zipUrl = URL.createObjectURL(zipContent);
-                const a = document.createElement('a');
-                a.download = `cropped_photos_${Date.now()}.zip`;
-                a.href = zipUrl;
-                a.click();
-                
-                setTimeout(() => URL.revokeObjectURL(zipUrl), 1000);
-                
-                log("ZIP export complete!", '#34c759');
-                reset();
-            }).catch(err => {
-                log(`Failed to create ZIP file: ${err}`, '#ff3b30');
-            });
-        }
-
-        function reset() { 
-            // Explicit memory garbage collection cleanup
-            croppedQueue.length = 0;
-            croppedQueue = [];
-            files = [];
-            
-            wrapper.style.display = 'none'; 
-            setup.style.display = 'flex'; 
-            document.getElementById('f-in').value = ''; 
-            document.getElementById('btn-zip').style.display = 'none';
-            document.getElementById('btn-commit').style.display = 'block';
-        }
-
-        (function initGestures() {
-            let active = false, resize = false, hMode = null, sX, sY, sW, sH, sL, sT;
-            ov.addEventListener('pointerdown', (e) => {
-                active = true; resize = e.target.classList.contains('handle'); hMode = e.target.dataset.h;
-                sX = e.clientX; sY = e.clientY; sW = box.w; sH = box.h; sL = box.x; sT = box.y;
-                ov.setPointerCapture(e.pointerId); e.preventDefault();
-            });
-
-            ov.addEventListener('pointermove', (e) => {
-                if (!active) return;
-                const dX = e.clientX - sX, dY = e.clientY - sY;
-                const mW = img.clientWidth, mH = img.clientHeight;
-
-                if (!resize) {
-                    box.x = Math.max(0, Math.min(sL + dX, mW - box.w));
-                    box.y = Math.max(0, Math.min(sT + dY, mH - box.h));
-                } else {
-                    let nW = sW, nH = sH, nX = sL, nY = sT;
-                    if (hMode === 'br') {
-                        nW = Math.min(sW + dX, mW - nX, (mH - nY) * ratio); nH = nW / ratio;
-                    } else if (hMode === 'bl') {
-                        nW = Math.min(sW - dX, sL + sW, (mH - nY) * ratio); nH = nW / ratio; nX = sL + sW - nW;
-                    } else if (hMode === 'tr') {
-                        nW = Math.min(sW + dX, mW - nX, (sT + sH) * ratio); nH = nW / ratio; nY = sT + sH - nH;
-                    } else if (hMode === 'tl') {
-                        nW = Math.min(sW - dX, sL + sW, (sT + sH) * ratio); nH = nW / ratio; nX = sL + sW - nW; nY = sT + sH - nH;
-                    }
-                    if (nW > 40 && nH > 40) { box.w = nW; box.h = nH; box.x = nX; box.y = nY; }
-                }
-                draw(); e.preventDefault();
-            });
-
-            const stop = (e) => { if (active) { active = false; ov.releasePointerCapture(e.pointerId); } };
-            ov.addEventListener('pointerup', stop); ov.addEventListener('pointercancel', stop);
-            
-            window.addEventListener('keydown', (e) => {
-                if (wrapper.style.display !== 'block') return;
-                if (e.key === 'Enter') { saveCrop(); e.preventDefault(); }
-                if (e.key === ' ' || e.key === 'Spacebar') { skipPhoto(); e.preventDefault(); }
-            });
-        })();
-    </script>
+  async function finish() {
+    if (exportQueue.length) {
+      await buildAndDeliverZip();
+    }
+    reviewScreen.classList.add('hidden');
+    doneScreen.classList.remove('hidden');
+    document.getElementById('summary-exported').textContent =
+      `Cropped and zipped: ${counts.exported}`;
+    document.getElementById('summary-auto').textContent =
+      `Skipped (already correct, or by choice): ${counts.skipped}`;
+    document.getElementById('summary-skipped').textContent = '';
+    log(`Batch finished — exported: ${counts.exported}, skipped: ${counts.skipped}`);
+  }
+})();
+</script>
 </body>
 </html>
