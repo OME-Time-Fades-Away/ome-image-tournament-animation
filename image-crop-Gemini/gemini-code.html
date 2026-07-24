@@ -6,7 +6,7 @@
     <title>Batch Aspect Cropper v3.8.0</title>
     <link rel="icon" type="image/png" href="../favicon.png">
     
-    <!-- JSZip Library for client-side archive generation -->
+    <!-- JSZip Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
     <style>
@@ -175,14 +175,6 @@
     <div id="log">System Ready. Load images to begin processing...</div>
 
     <script>
-        /* ====================================================================
-         * BATCH ASPECT CROPPER ENGINE
-         * Version: 3.8.0
-         * - Preserves 100% source replacement set in ZIP output
-         * - Auto-skipped images appended directly to JSZip with original timestamps
-         * - Non-destructive cropping with _43 / _34 dynamic suffixing
-         * ==================================================================== */
-
         const fileInput = document.getElementById('fileInput');
         const targetAspectSelect = document.getElementById('targetAspect');
         const showGridToggle = document.getElementById('showGridToggle');
@@ -248,7 +240,7 @@
             skipped = 0;
             zip = new JSZip();
             logBox.innerHTML = '';
-            log(`Starting v3.8.0 batch job (${files.length} files total)...`, '#00e676');
+            log(`Starting batch job (${files.length} files total)...`, '#00e676');
             
             downloadBtn.disabled = true;
             nextItem();
@@ -258,7 +250,6 @@
             if (idx >= files.length) {
                 log(`Batch processing complete! ${processedCount} cropped, ${skipped} auto-skipped (100% included in ZIP).`, '#00e676');
                 downloadBtn.disabled = false;
-                // Reset file input state for consecutive batch runs
                 fileInput.value = '';
                 return;
             }
@@ -277,7 +268,7 @@
                 if (Math.abs(ratio - 1.333) < 0.03 || Math.abs(ratio - 0.75) < 0.03) {
                     log(`Target matches aspect rules. Auto skipped (added original to ZIP): ${currentFile.name}`, '#ff9500'); 
                     
-                    // PASS ORIGINAL FILE DIRECTLY TO JSZIP (Preserves File & Timestamp)
+                    // ADD UNTOUCHED ORIGINAL FILE DIRECTLY TO JSZIP
                     zip.file(currentFile.name, currentFile, {
                         date: new Date(currentFile.lastModified)
                     });
