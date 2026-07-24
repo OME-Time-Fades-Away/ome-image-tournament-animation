@@ -2,446 +2,231 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OME Aspect Ratio Crop Engine</title>
-    <!-- Link to your favicon -->
-    <link rel="icon" type="image/png" href="../favicon.png">
-    <!-- Build v3.7.0 · Drag/Drop, Grid & Aspect Toggle -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Aspect Cropper</title>
+    <!-- Include JSZip library for bundling exports -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        :root {
-            --bg-deep: #0a0a0c;
-            --bg-surface: #16161a;
-            --bg-card: #202026;
-            --accent: #007aff;
-            --success: #34c759;
-            --warning: #ff9500;
-            --text: #f5f5f7;
-            --text-muted: #86868b;
-            --border: #2c2c35;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-deep); color: var(--text); overflow: hidden;
-            position: fixed; width: 100%; height: 100%; display: flex; flex-direction: column;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        header {
-            background: var(--bg-surface); padding: 14px 20px; border-bottom: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center; z-index: 10;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        h1 { margin-bottom: 10px; }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
         }
-        .title h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
-        .title span { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
-        .stats { display: flex; gap: 12px; }
-        .stat-card {
-            background: var(--bg-card); padding: 6px 12px; border-radius: 8px;
-            border: 1px solid var(--border); font-size: 13px; font-weight: 500;
+        button, input[type="file"], select {
+            background-color: #1e1e1e;
+            color: #fff;
+            border: 1px solid #333;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
         }
-        .stat-card span { font-weight: 700; margin-left: 4px; }
-        
-        #main-container { 
-            flex: 1; position: relative; display: flex; justify-content: center; align-items: center; 
-            background: #020203; overflow: hidden; width: 100%; 
-            border: 2px solid transparent; transition: border-color 0.2s ease;
+        button:hover { background-color: #2a2a2a; }
+        #canvas-container {
+            position: relative;
+            margin-top: 10px;
+            max-width: 90vw;
+            max-height: 60vh;
         }
-        
-        #viewport-wrapper { 
-            position: relative; display: none; 
-            max-width: 90vw; max-height: calc(100vh - 260px);
-            filter: drop-shadow(0 12px 30px rgba(0,0,0,0.7)); 
+        canvas {
+            border: 1px solid #444;
+            max-width: 100%;
+            max-height: 60vh;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
-        #display-image { 
-            max-width: 90vw; max-height: calc(100vh - 260px); 
-            display: block; pointer-events: none; object-fit: contain;
+        #log {
+            width: 90%;
+            max-width: 800px;
+            height: 150px;
+            background-color: #0d0d0d;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            margin-top: 20px;
+            white-space: pre-wrap;
         }
-        
-        /* Crop Overlay & Rule of Thirds Grid */
-        #crop-overlay {
-            position: absolute; border: 2px solid var(--accent);
-            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.78); cursor: move; touch-action: none;
-        }
-        .grid-line-v, .grid-line-h {
-            position: absolute; background-color: rgba(255, 255, 255, 0.25); pointer-events: none;
-        }
-        .grid-line-v { top: 0; bottom: 0; width: 1px; }
-        .grid-line-h { left: 0; right: 0; height: 1px; }
-        .v1 { left: 33.33%; } .v2 { left: 66.66%; }
-        .h1 { top: 33.33%; } .h2 { top: 66.66%; }
-
-        .handle {
-            position: absolute; width: 32px; height: 32px; background: var(--text);
-            border: 4px solid var(--accent); border-radius: 50%; z-index: 5;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-        }
-        .tl { top: -16px; left: -16px; cursor: nwse-resize; }
-        .tr { top: -16px; right: -16px; cursor: nesw-resize; }
-        .bl { bottom: -16px; left: -16px; cursor: nesw-resize; }
-        .br { bottom: -16px; right: -16px; cursor: nwse-resize; }
-        
-        #setup { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 30px; text-align: center; max-width: 500px; }
-        .picker-btn {
-            background: var(--accent); color: #fff; font-weight: 600; padding: 16px 36px;
-            border-radius: 14px; border: none; font-size: 17px; cursor: pointer;
-        }
-        
-        #controls {
-            background: var(--bg-surface); padding: 14px 24px; border-top: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center; z-index: 10; gap: 10px;
-        }
-        .action-btn {
-            background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
-            padding: 12px 20px; border-radius: 10px; font-weight: 600; font-size: 14px;
-            cursor: pointer; min-width: 90px; text-align: center;
-        }
-        .action-btn.primary { background: var(--success); border-color: var(--success); color: #fff; }
-        .action-btn.zip-btn { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .action-btn.toggle-btn { background: #2c2c35; }
-        .action-btn.ratio-btn { background: #3a3a4c; border-color: var(--accent); color: #fff; }
-
-        #logger {
-            height: 95px; background: #050507; border-top: 1px solid var(--border);
-            font-family: monospace; font-size: 11px; padding: 10px 16px;
-            overflow-y: scroll; color: #a1a1aa; user-select: text; -webkit-user-select: text;
-        }
-        .log-line { margin-bottom: 4px; line-height: 1.5; }
     </style>
 </head>
 <body>
-    <header>
-        <div class="title">
-            <h1>IMAGE ASPECT RATIO TOOL</h1>
-            <span>Build v3.7.0 · Grid & Aspect Toggle Support</span>
-        </div>
-        <div class="stats">
-            <div class="stat-card">Index: <span id="s-prog" style="color:var(--accent)">0 / 0</span></div>
-            <div class="stat-card">Staged: <span id="s-save" style="color:var(--success)">0</span></div>
-            <div class="stat-card">Skipped: <span id="s-skip" style="color:var(--warning)">0</span></div>
-        </div>
-    </header>
 
-    <div id="main-container">
-        <div id="setup">
-            <p style="color: var(--text-muted); font-size: 15px; line-height: 1.6;">
-                Drop photos from Photo Manager Pro / Files or open the file picker to begin standardization.
-            </p>
-            <button class="picker-btn" onclick="document.getElementById('f-in').click()">Open Photo Picker</button>
-            <input type="file" id="f-in" accept="image/*" multiple style="display:none">
-        </div>
+    <h1>Aspect Ratio Cropper</h1>
 
-        <div id="viewport-wrapper">
-            <img id="display-image" alt="Active Frame Buffer">
-            <div id="crop-overlay">
-                <!-- Rule of Thirds Grid Lines -->
-                <div class="grid-line-v v1"></div><div class="grid-line-v v2"></div>
-                <div class="grid-line-h h1"></div><div class="grid-line-h h2"></div>
-                
-                <!-- Handles -->
-                <div class="handle tl" data-h="tl"></div><div class="handle tr" data-h="tr"></div>
-                <div class="handle bl" data-h="bl"></div><div class="handle br" data-h="br"></div>
-            </div>
-        </div>
+    <div class="controls">
+        <input type="file" id="fileInput" multiple accept="image/*">
+        <label>Target Aspect Ratio: 
+            <select id="targetAspect">
+                <option value="4:3">4:3 (Landscape)</option>
+                <option value="3:4">3:4 (Portrait)</option>
+            </select>
+        </label>
+        <button id="processBtn">Start Batch Process</button>
+        <button id="downloadBtn" disabled>Download ZIP</button>
     </div>
 
-    <div id="controls">
-        <button class="action-btn" onclick="skipPhoto()">Skip Frame</button>
-        <button class="action-btn ratio-btn" id="btn-ratio" onclick="toggleRatio()">Aspect: 4:3</button>
-        <button class="action-btn toggle-btn" onclick="toggleConsole()" id="btn-toggle-log">Hide Log</button>
-        <button class="action-btn zip-btn" id="btn-zip" onclick="downloadZip()" style="display:none">Download ZIP</button>
-        <button class="action-btn primary" id="btn-commit" onclick="saveCrop()">Commit Crop</button>
+    <div id="canvas-container">
+        <canvas id="cropCanvas"></canvas>
     </div>
 
-    <div id="logger"></div>
+    <div id="log">Logs will appear here...</div>
 
     <script>
-        let files = [], idx = 0, saved = 0, skipped = 0;
-        let ratio = 1.333, imgW = 0, imgH = 0, scale = 1;
-        let croppedQueue = [];
-        const box = { x: 0, y: 0, w: 0, h: 0 };
-        const ov = document.getElementById('crop-overlay');
-        const img = document.getElementById('display-image');
-        const wrapper = document.getElementById('viewport-wrapper');
-        const setup = document.getElementById('setup');
-        const mainContainer = document.getElementById('main-container');
+        const fileInput = document.getElementById('fileInput');
+        const targetAspectSelect = document.getElementById('targetAspect');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const canvas = document.getElementById('cropCanvas');
+        const ctx = canvas.getContext('2d');
+        const logBox = document.getElementById('log');
 
-        // File Input Loader
-        document.getElementById('f-in').addEventListener('change', (e) => {
-            loadFileList(Array.from(e.target.files));
-        });
+        let files = [];
+        let idx = 0;
+        let processedCount = 0;
+        let skipped = 0;
+        let zip = null;
 
-        // Drag and Drop integration for iPadOS (PM Pro, Files, Photos)
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
-            mainContainer.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
-        });
-        ['dragenter', 'dragover'].forEach(evt => {
-            mainContainer.addEventListener(evt, () => { mainContainer.style.borderColor = 'var(--accent)'; }, false);
-        });
-        ['dragleave', 'drop'].forEach(evt => {
-            mainContainer.addEventListener(evt, () => { mainContainer.style.borderColor = 'transparent'; }, false);
-        });
-        mainContainer.addEventListener('drop', (e) => {
-            const droppedFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-            if (droppedFiles.length > 0) {
-                log(`Received ${droppedFiles.length} item(s) via Drag and Drop.`, '#34c759');
-                loadFileList(droppedFiles);
-            } else {
-                log("No valid image files found in drop payload.", '#ff9500');
-            }
-        });
-
-        function loadFileList(fileArray) {
-            files = fileArray; if (!files.length) return;
-            idx = 0; saved = 0; skipped = 0; croppedQueue = [];
-            document.getElementById('btn-zip').style.display = 'none';
-            document.getElementById('btn-commit').style.display = 'block';
-            setup.style.display = 'none'; wrapper.style.display = 'block';
-            log(`Pipeline initialized: ${files.length} items loaded.`, '#34c759');
-            nextItem();
+        function log(message, color = '#e0e0e0') {
+            const div = document.createElement('div');
+            div.style.color = color;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logBox.appendChild(div);
+            logBox.scrollTop = logBox.scrollHeight;
         }
 
-        function log(m, color = '') {
-            const p = document.getElementById('logger');
-            p.innerHTML += `<div class="log-line" style="color:${color}">[${new Date().toLocaleTimeString()}] ${m}</div>`;
-            p.scrollTop = p.scrollHeight;
-        }
-
-        function toggleConsole() {
-            const panel = document.getElementById('logger');
-            const btn = document.getElementById('btn-toggle-log');
-            if (panel.style.display === 'none') {
-                panel.style.display = 'block'; btn.innerText = 'Hide Log';
-            } else {
-                panel.style.display = 'none'; btn.innerText = 'Show Log';
-            }
-        }
-
-        function toggleRatio() {
-            ratio = ratio > 1 ? 0.75 : 1.333;
-            document.getElementById('btn-ratio').innerText = ratio > 1 ? 'Aspect: 4:3' : 'Aspect: 3:4';
-            recalculateBox();
-            log(`Aspect target switched manually to ${ratio > 1 ? '4:3 Landscape' : '3:4 Portrait'}`);
-        }
-
-        function extractExif(buffer) {
-            try {
-                const dv = new DataView(buffer);
-                if (dv.getUint16(0) !== 0xFFD8) return [];
-                let offset = 2, segments = [];
-                while (offset < dv.byteLength - 4) {
-                    const marker = dv.getUint16(offset);
-                    if (marker === 0xFFD9 || marker === 0xFFDA) break;
-                    const len = dv.getUint16(offset + 2);
-                    if (marker >= 0xFFE0 && marker <= 0xFFEF) {
-                        segments.push(buffer.slice(offset, offset + 2 + len));
-                    }
-                    offset += 2 + len;
-                }
-                return segments;
-            } catch (e) { return []; }
-        }
-
-        function nextItem() {
-            const total = files.length;
-            document.getElementById('s-save').innerText = saved;
-            document.getElementById('s-skip').innerText = skipped;
-
-            if (idx >= total) {
-                document.getElementById('s-prog').innerText = `${total} / ${total}`;
-                log("Batch queue complete. Ready for ZIP export.", '#34c759');
-                finishBatch(); 
+        processBtn.addEventListener('click', () => {
+            files = Array.from(fileInput.files);
+            if (files.length === 0) {
+                alert('Please select image files first.');
                 return;
             }
-            
-            document.getElementById('s-prog').innerText = `${idx + 1} / ${total}`;
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const i = new Image();
-                i.onload = () => {
-                    imgW = i.width; imgH = i.height;
-                    const r = imgW / imgH;
-                    
-                    if (Math.abs(r - 1.333) < 0.03 || Math.abs(r - 0.75) < 0.03) {
-                        log(`Target matches aspect rules. Auto skipped: ${files[idx].name}`, '#ff9500'); 
-                        skipped++; idx++; nextItem();
-                    } else {
-                        ratio = r > 1 ? 1.333 : 0.75;
-                        document.getElementById('btn-ratio').innerText = ratio > 1 ? 'Aspect: 4:3' : 'Aspect: 3:4';
-                        img.src = e.target.result;
-                        
-                        setTimeout(() => {
-                            recalculateBox();
-                        }, 50);
-                    }
-                };
-                i.src = e.target.result;
-            };
-            reader.readAsDataURL(files[idx]);
-        }
 
-        function recalculateBox() {
-            const dispW = img.clientWidth || img.width;
-            const dispH = img.clientHeight || img.height;
-            scale = imgW / dispW;
+            idx = 0;
+            processedCount = 0;
+            skipped = 0;
+            zip = new JSZip();
+            logBox.innerHTML = '';
+            log(`Starting batch job with ${files.length} files...`, '#00e676');
             
-            if (dispW / dispH > ratio) {
-                box.h = dispH; box.w = box.h * ratio;
-            } else {
-                box.w = dispW; box.h = box.w / ratio;
+            downloadBtn.disabled = true;
+            nextItem();
+        });
+
+        function nextItem() {
+            if (idx >= files.length) {
+                log(`Batch processing complete! ${processedCount} cropped, ${skipped} auto-skipped (all included in ZIP).`, '#00e676');
+                downloadBtn.disabled = false;
+                return;
             }
-            box.x = (dispW - box.w) / 2; box.y = (dispH - box.h) / 2;
-            draw();
-        }
 
-        function draw() {
-            ov.style.width = box.w + 'px'; ov.style.height = box.h + 'px';
-            ov.style.left = box.x + 'px'; ov.style.top = box.y + 'px';
-        }
-
-        function skipPhoto() { 
-            log(`Manual bypass applied to: ${files[idx].name}`); 
-            skipped++; idx++; nextItem(); 
-        }
-
-        function saveCrop() {
             const currentFile = files[idx];
-            const canvas = document.createElement('canvas');
-            canvas.width = box.w * scale; canvas.height = box.h * scale;
-            const ctx = canvas.getContext('2d');
-            const base = new Image();
-            
-            base.onload = () => {
-                ctx.drawImage(base, box.x*scale, box.y*scale, box.w*scale, box.h*scale, 0, 0, canvas.width, canvas.height);
-                
-                const metaReader = new FileReader();
-                metaReader.onload = (me) => {
-                    const origBuffer = me.target.result;
-                    const exifSegments = extractExif(origBuffer);
+            const img = new Image();
+            const url = URL.createObjectURL(currentFile);
+
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                const w = img.width;
+                const h = img.height;
+                const ratio = w / h;
+
+                // Check auto-skip tolerance (target ratio match)
+                if (Math.abs(ratio - 1.333) < 0.03 || Math.abs(ratio - 0.75) < 0.03) {
+                    log(`Target matches aspect rules. Auto skipped (added original to ZIP): ${currentFile.name}`, '#ff9500'); 
                     
-                    canvas.toBlob((blob) => {
-                        const blobReader = new FileReader();
-                        blobReader.onload = (be) => {
-                            const croppedBuffer = be.target.result;
-                            const chunks = [croppedBuffer.slice(0, 2), ...exifSegments, croppedBuffer.slice(2)];
-                            const finalBlob = new Blob(chunks, { type: currentFile.type || 'image/jpeg' });
-                            
-                            const orig = currentFile.name;
-                            const lastDotIdx = orig.lastIndexOf('.');
-                            const bName = lastDotIdx !== -1 ? orig.substring(0, lastDotIdx) : orig;
-                            const ext = lastDotIdx !== -1 ? orig.substring(lastDotIdx) : '.jpg';
-                            
-                            const suffix = ratio > 1 ? '_43' : '_34';
-                            const fileName = `${bName}${suffix}${ext}`;
-                            const fileDate = currentFile.lastModified ? new Date(currentFile.lastModified) : new Date();
-
-                            croppedQueue.push({ 
-                                name: fileName, 
-                                blob: finalBlob, 
-                                date: fileDate 
-                            });
-                            
-                            log(`Staged for ZIP export: ${fileName}`, '#34c759'); 
-                            saved++; idx++; nextItem();
-                        };
-                        blobReader.readAsArrayBuffer(blob);
-                    }, currentFile.type || 'image/jpeg', 0.94);
-                };
-                metaReader.readAsArrayBuffer(currentFile);
-            };
-            base.src = img.src;
-        }
-
-        function finishBatch() {
-            wrapper.style.display = 'none';
-            document.getElementById('btn-commit').style.display = 'none';
-            
-            if (croppedQueue.length > 0) {
-                document.getElementById('btn-zip').style.display = 'block';
-                log(`Batch ready! ${croppedQueue.length} cropped photo(s) staged in memory. Click 'Download ZIP'.`, '#007aff');
-            } else {
-                log("No cropped images staged for download.", '#ff9500');
-                reset();
-            }
-        }
-
-        function downloadZip() {
-            if (croppedQueue.length === 0) return;
-            log("Packaging images into ZIP archive...", '#007aff');
-            
-            const zip = new JSZip();
-            croppedQueue.forEach(item => {
-                zip.file(item.name, item.blob, { 
-                    compression: "STORE",
-                    date: item.date 
-                });
-            });
-
-            zip.generateAsync({ type: 'blob' }).then((zipContent) => {
-                const zipUrl = URL.createObjectURL(zipContent);
-                const a = document.createElement('a');
-                a.download = `cropped_photos_${Date.now()}.zip`;
-                a.href = zipUrl;
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(zipUrl), 1000);
-                log("ZIP export complete!", '#34c759');
-                reset();
-            }).catch(err => {
-                log(`Failed to create ZIP file: ${err}`, '#ff3b30');
-            });
-        }
-
-        function reset() { 
-            croppedQueue = [];
-            files = [];
-            wrapper.style.display = 'none'; 
-            setup.style.display = 'flex'; 
-            document.getElementById('f-in').value = ''; 
-            document.getElementById('btn-zip').style.display = 'none';
-            document.getElementById('btn-commit').style.display = 'block';
-        }
-
-        (function initGestures() {
-            let active = false, resize = false, hMode = null, sX, sY, sW, sH, sL, sT;
-            ov.addEventListener('pointerdown', (e) => {
-                active = true; resize = e.target.classList.contains('handle'); hMode = e.target.dataset.h;
-                sX = e.clientX; sY = e.clientY; sW = box.w; sH = box.h; sL = box.x; sT = box.y;
-                ov.setPointerCapture(e.pointerId); e.preventDefault();
-            });
-
-            ov.addEventListener('pointermove', (e) => {
-                if (!active) return;
-                const dX = e.clientX - sX, dY = e.clientY - sY;
-                const mW = img.clientWidth, mH = img.clientHeight;
-
-                if (!resize) {
-                    box.x = Math.max(0, Math.min(sL + dX, mW - box.w));
-                    box.y = Math.max(0, Math.min(sT + dY, mH - box.h));
-                } else {
-                    let nW = sW, nH = sH, nX = sL, nY = sT;
-                    if (hMode === 'br') {
-                        nW = Math.min(sW + dX, mW - nX, (mH - nY) * ratio); nH = nW / ratio;
-                    } else if (hMode === 'bl') {
-                        nW = Math.min(sW - dX, sL + sW, (mH - nY) * ratio); nH = nW / ratio; nX = sL + sW - nW;
-                    } else if (hMode === 'tr') {
-                        nW = Math.min(sW + dX, mW - nX, (sT + sH) * ratio); nH = nW / ratio; nY = sT + sH - nH;
-                    } else if (hMode === 'tl') {
-                        nW = Math.min(sW - dX, sL + sW, (sT + sH) * ratio); nH = nW / ratio; nX = sL + sW - nW; nY = sT + sH - nH;
-                    }
-                    if (nW > 40 && nH > 40) { box.w = nW; box.h = nH; box.x = nX; box.y = nY; }
+                    // OPTION 1: Pass untouched original file buffer directly to JSZip
+                    // Preserves original file name and original JSZip file modified date
+                    zip.file(currentFile.name, currentFile, {
+                        date: new Date(currentFile.lastModified)
+                    });
+                    
+                    skipped++; 
+                    idx++; 
+                    nextItem();
+                    return;
                 }
-                draw(); e.preventDefault();
-            });
 
-            const stop = (e) => { if (active) { active = false; ov.releasePointerCapture(e.pointerId); } };
-            ov.addEventListener('pointerup', stop); ov.addEventListener('pointercancel', stop);
+                // Process and crop on Canvas
+                processAndCrop(img, currentFile);
+            };
+
+            img.src = url;
+        }
+
+        function processAndCrop(img, originalFile) {
+            const targetRatioStr = targetAspectSelect.value;
+            let targetRatio = 4 / 3;
+            let suffix = '_43';
+
+            if (targetRatioStr === '3:4') {
+                targetRatio = 3 / 4;
+                suffix = '_34';
+            }
+
+            let cropW = img.width;
+            let cropH = img.height;
+            const currentRatio = img.width / img.height;
+
+            if (currentRatio > targetRatio) {
+                cropW = img.height * targetRatio;
+            } else {
+                cropH = img.width / targetRatio;
+            }
+
+            const startX = (img.width - cropW) / 2;
+            const startY = (img.height - cropH) / 2;
+
+            canvas.width = cropW;
+            canvas.height = cropH;
+
+            // Clear and draw cropped image to canvas
+            ctx.clearRect(0, 0, cropW, cropH);
+            ctx.drawImage(img, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
+
+            // Convert canvas output to blob and append to ZIP
+            canvas.toBlob((blob) => {
+                // Generate new suffix filename
+                const nameParts = originalFile.name.split('.');
+                const ext = nameParts.pop();
+                const baseName = nameParts.join('.');
+                const newFilename = `${baseName}${suffix}.${ext}`;
+
+                // Add canvas export blob to JSZip
+                zip.file(newFilename, blob, {
+                    date: new Date(originalFile.lastModified)
+                });
+
+                log(`Cropped & exported: ${newFilename}`, '#29b6f6');
+                processedCount++;
+                idx++;
+                nextItem();
+            }, 'image/jpeg', 0.92);
+        }
+
+        downloadBtn.addEventListener('click', async () => {
+            log('Generating ZIP archive...', '#e040fb');
+            const content = await zip.generateAsync({ type: 'blob' });
             
-            window.addEventListener('keydown', (e) => {
-                if (wrapper.style.display !== 'block') return;
-                if (e.key === 'Enter') { saveCrop(); e.preventDefault(); }
-                if (e.key === ' ' || e.key === 'Spacebar') { skipPhoto(); e.preventDefault(); }
-                if (e.key === 'r' || e.key === 'R') { toggleRatio(); e.preventDefault(); }
-            });
-        })();
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = `Cropped_Batch_${Date.now()}.zip`;
+            link.click();
+            log('ZIP file downloaded successfully.', '#00e676');
+        });
     </script>
 </body>
 </html>
