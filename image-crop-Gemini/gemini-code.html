@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>OME Aspect Ratio Crop Engine</title>
-    <!-- Build v3.9.1 · Drag/Drop, Grid, Aspect Toggle & 100% ZIP Retention -->
+    <!-- Build v3.9.2 · Drag/Drop, Grid, Aspect Toggle, Relative Favicon & Date Preservative ZIP -->
     <link rel="icon" type="image/png" href="../favicon.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
@@ -110,7 +110,7 @@
     <header>
         <div class="title">
             <h1>IMAGE ASPECT RATIO TOOL</h1>
-            <span>Build v3.9.1. Date 24/7/2026 @ 10:39 · Drag/Drop, Grid, Aspect Toggle & Full ZIP Set</span>
+            <span>Build v3.9.2. Date 30/7/2026 @ 17:23 · Drag/Drop, Grid, Aspect Toggle & Preserved Timestamps</span>
         </div>
         <div class="stats">
             <div class="stat-card">Index: <span id="s-prog" style="color:var(--accent)">0 / 0</span></div>
@@ -168,7 +168,7 @@
             loadFileList(Array.from(e.target.files));
         });
 
-        // Drag and Drop integration for iPadOS (PM Pro, Files, Photos)
+        // Drag and Drop integration for iPadOS
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
             mainContainer.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
         });
@@ -239,6 +239,14 @@
             } catch (e) { return []; }
         }
 
+        function getExactFileDate(file) {
+            // Extracts exact timestamp, fallback to current time
+            if (file && file.lastModified) {
+                return new Date(file.lastModified);
+            }
+            return new Date();
+        }
+
         function nextItem() {
             const total = files.length;
             document.getElementById('s-save').innerText = saved;
@@ -263,12 +271,11 @@
                     if (Math.abs(r - 1.333) < 0.03 || Math.abs(r - 0.75) < 0.03) {
                         log(`Target matches aspect rules. Auto skipped (added original to ZIP): ${files[idx].name}`, '#ff9500'); 
                         
-                        // Push original untouched file buffer directly into the ZIP queue
                         const currentFile = files[idx];
                         croppedQueue.push({
                             name: currentFile.name,
                             blob: currentFile,
-                            date: currentFile.lastModified ? new Date(currentFile.lastModified) : new Date()
+                            date: getExactFileDate(currentFile)
                         });
 
                         skipped++; idx++; nextItem();
@@ -310,11 +317,10 @@
             const currentFile = files[idx];
             log(`Manual bypass applied (added original to ZIP): ${currentFile.name}`, '#ff9500'); 
             
-            // Push original untouched file buffer directly into the ZIP queue
             croppedQueue.push({
                 name: currentFile.name,
                 blob: currentFile,
-                date: currentFile.lastModified ? new Date(currentFile.lastModified) : new Date()
+                date: getExactFileDate(currentFile)
             });
 
             skipped++; idx++; nextItem(); 
@@ -349,12 +355,11 @@
                             
                             const suffix = ratio > 1 ? '_43' : '_34';
                             const fileName = `${bName}${suffix}${ext}`;
-                            const fileDate = currentFile.lastModified ? new Date(currentFile.lastModified) : new Date();
 
                             croppedQueue.push({ 
                                 name: fileName, 
                                 blob: finalBlob, 
-                                date: fileDate 
+                                date: getExactFileDate(currentFile)
                             });
                             
                             log(`Staged for ZIP export: ${fileName}`, '#34c759'); 
@@ -383,13 +388,17 @@
 
         function downloadZip() {
             if (croppedQueue.length === 0) return;
-            log("Packaging images into ZIP archive...", '#007aff');
+            log("Packaging images into ZIP archive with preserved dates...", '#007aff');
             
             const zip = new JSZip();
             croppedQueue.forEach(item => {
+                // Adjust for local timezone offset so JSZip writes local DOS timestamp correctly
+                const targetDate = item.date;
+                const adjustedDate = new Date(targetDate.getTime() - (targetDate.getTimezoneOffset() * 60000));
+                
                 zip.file(item.name, item.blob, { 
                     compression: "STORE",
-                    date: item.date 
+                    date: adjustedDate 
                 });
             });
 
