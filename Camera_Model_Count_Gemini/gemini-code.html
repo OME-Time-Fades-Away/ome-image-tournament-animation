@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo EXIF & Camera Model Analyzer</title>
+    <!-- Lightweight EXIF parser for modern browsers -->
+    <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+    <style>
+        :root {
+            --bg-deep: #0a0a0c;
+            --bg-surface: #16161a;
+            --bg-card: #202026;
+            --accent: #007aff;
+            --success: #34c759;
+            --warning: #ff9500;
+            --text: #f5f5f7;
+            --text-muted: #86868b;
+            --border: #2c2c35;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-deep); color: var(--text);
+            min-height: 100vh; display: flex; flex-direction: column;
+        }
+        header {
+            background: var(--bg-surface); padding: 14px 20px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; z-index: 10;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .title h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+        .title span { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
+        .stats { display: flex; gap: 12px; }
+        .stat-card {
+            background: var(--bg-card); padding: 6px 12px; border-radius: 8px;
+            border: 1px solid var(--border); font-size: 13px; font-weight: 500;
+        }
+        .stat-card span { font-weight: 700; margin-left: 4px; }
+        
+        #filter-bar {
+            background: var(--bg-surface); padding: 12px 20px; border-bottom: 1px solid var(--border);
+            display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+        }
+        .filter-group { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); }
+        .filter-group label { font-weight: 600; color: var(--text); }
+        input[type="date"], select {
+            background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
+            padding: 6px 10px; border-radius: 6px; font-size: 13px; outline: none;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+
+        #main-container {
+            flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;
+        }
+
+        #drop-zone {
+            border: 2px dashed var(--border); border-radius: 12px; padding: 30px; text-align: center;
+            background: var(--bg-surface); cursor: pointer; transition: all 0.2s ease;
+        }
+        #drop-zone:hover, #drop-zone.dragover { border-color: var(--accent); background: var(--bg-card); }
+        
+        .picker-btn {
+            background: var(--accent); color: #fff; font-weight: 600; padding: 10px 20px;
+            border-radius: 8px; border: none; font-size: 14px; cursor: pointer; margin-top: 10px;
+        }
+
+        /* Summary Cards & Tables */
+        .summary-card {
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px;
+            padding: 16px; margin-bottom: 16px;
+        }
+        .summary-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 12px;
+        }
+        .summary-header h2 { font-size: 16px; color: var(--accent); }
+        .summary-badge {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+        th { background: var(--bg-card); color: var(--text-muted); padding: 8px 12px; font-weight: 600; }
+        td { padding: 8px 12px; border-top: 1px solid var(--border); color: var(--text); }
+        tr:hover { background: rgba(255,255,255,0.02); }
+
+        #logger {
+            height: 100px; background: #050507; border-top: 1px solid var(--border);
+            font-family: monospace; font-size: 11px; padding: 10px 16px;
+            overflow-y: scroll; color: #a1a1aa;
+        }
+        .log-line { margin-bottom: 4px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="title">
+            <h1>CAMERA MODEL METADATA ANALYZER</h1>
+            <span>EXIF Extraction, Date Filtering & Model Summary Engine</span>
+        </div>
+        <div class="stats">
+            <div class="stat-card">Parsed: <span id="s-total" style="color:var(--accent)">0</span></div>
+            <div class="stat-card">Filtered: <span id="s-filtered" style="color:var(--success)">0</span></div>
+            <div class="stat-card">Models: <span id="s-models" style="color:var(--warning)">0</span></div>
+        </div>
+    </header>
+
+    <div id="filter-bar">
+        <div class="filter-group">
+            <label for="start-date">Start Date:</label>
+            <input type="date" id="start-date" onchange="applyFilters()">
+        </div>
+        <div class="filter-group">
+            <label for="end-date">End Date:</label>
+            <input type="date" id="end-date" onchange="applyFilters()">
+        </div>
+        <div class="filter-group">
+            <label for="sort-by">Sort Models By:</label>
+            <select id="sort-by" onchange="applyFilters()">
+                <option value="model-asc">Camera Model (A-Z)</option>
+                <option value="count-desc">Photo Count (High to Low)</option>
+                <option value="count-asc">Photo Count (Low to High)</option>
+            </select>
+        </div>
+        <button class="action-btn" style="margin-left:auto; background:var(--bg-card); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:6px; cursor:pointer;" onclick="clearFilters()">Reset Filters</button>
+    </div>
+
+    <div id="main-container">
+        <div id="drop-zone" onclick="document.getElementById('f-in').click()">
+            <p style="color: var(--text-muted); font-size: 14px;">
+                Drag & Drop photos here or click to open file picker.
+            </p>
+            <button class="picker-btn">Select Photo Batch</button>
+            <input type="file" id="f-in" accept="image/*" multiple style="display:none">
+        </div>
+
+        <div id="output-container"></div>
+    </div>
+
+    <div id="logger"></div>
+
+    <script>
+        let rawPhotoData = []; // Holds all parsed metadata objects
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('f-in');
+
+        // File Selection Handlers
+        fileInput.addEventListener('change', (e) => processFiles(Array.from(e.target.files)));
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+            dropZone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); });
+        });
+        ['dragenter', 'dragover'].forEach(() => dropZone.classList.add('dragover'));
+        ['dragleave', 'drop'].forEach(() => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            if (dropped.length) processFiles(dropped);
+        });
+
+        function log(m, color = '') {
+            const p = document.getElementById('logger');
+            p.innerHTML += `<div class="log-line" style="color:${color}">[${new Date().toLocaleTimeString()}] ${m}</div>`;
+            p.scrollTop = p.scrollHeight;
+        }
+
+        async function processFiles(files) {
+            if (!files.length) return;
+            log(`Starting EXIF extraction for ${files.length} photo(s)...`, '#007aff');
+            rawPhotoData = [];
+
+            let count = 0;
+            for (const file of files) {
+                count++;
+                let model = 'Unknown Camera';
+                let captureDate = file.lastModified ? new Date(file.lastModified) : new Date();
+                let width = 0, height = 0;
+
+                try {
+                    // Extract EXIF data using exifr library
+                    const exif = await exifr.parse(file, ['Make', 'Model', 'DateTimeOriginal', 'ExifImageWidth', 'ExifImageHeight']);
+                    if (exif) {
+                        if (exif.Model) {
+                            model = exif.Make && !exif.Model.startsWith(exif.Make) 
+                                ? `${exif.Make} ${exif.Model}` 
+                                : exif.Model;
+                        }
+                        if (exif.DateTimeOriginal) {
+                            captureDate = new Date(exif.DateTimeOriginal);
+                        }
+                        width = exif.ExifImageWidth || 0;
+                        height = exif.ExifImageHeight || 0;
+                    }
+                } catch (err) {
+                    log(`Warning: Failed to parse EXIF for ${file.name}`, '#ff9500');
+                }
+
+                // Fallback to image element for dimensions if EXIF dimensions were absent
+                if (!width || !height) {
+                    const dims = await getImageDimensions(file);
+                    width = dims.width;
+                    height = dims.height;
+                }
+
+                const aspectRatio = height > 0 ? (width / height).toFixed(3) : 0;
+
+                rawPhotoData.push({
+                    name: file.name,
+                    size: file.size,
+                    model: model.trim(),
+                    date: captureDate,
+                    width: width,
+                    height: height,
+                    aspectRatio: parseFloat(aspectRatio)
+                });
+
+                if (count % 10 === 0 || count === files.length) {
+                    log(`Processed ${count}/${files.length} files...`);
+                }
+            }
+
+            log(`Parsing complete! Total: ${rawPhotoData.length} files processed.`, '#34c759');
+            document.getElementById('s-total').innerText = rawPhotoData.length;
+            applyFilters();
+        }
+
+        function getImageDimensions(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    resolve({ width: img.naturalWidth, height: img.naturalHeight });
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    resolve({ width: 0, height: 0 });
+                };
+                img.src = url;
+            });
+        }
+
+        function applyFilters() {
+            if (!rawPhotoData.length) return;
+
+            const startDateVal = document.getElementById('start-date').value;
+            const endDateVal = document.getElementById('end-date').value;
+            const sortBy = document.getElementById('sort-by').value;
+
+            const startDate = startDateVal ? new Date(startDateVal + 'T00:00:00') : null;
+            const endDate = endDateVal ? new Date(endDateVal + 'T23:59:59') : null;
+
+            // 1. Filter by Date Range
+            const filtered = rawPhotoData.filter(item => {
+                if (startDate && item.date < startDate) return false;
+                if (endDate && item.date > endDate) return false;
+                return true;
+            });
+
+            document.getElementById('s-filtered').innerText = filtered.length;
+
+            // 2. Group by Camera Model
+            const grouped = {};
+            filtered.forEach(item => {
+                if (!grouped[item.model]) {
+                    grouped[item.model] = [];
+                }
+                grouped[item.model].push(item);
+            });
+
+            // 3. Sort Camera Models
+            let sortedModels = Object.keys(grouped);
+            document.getElementById('s-models').innerText = sortedModels.length;
+
+            if (sortBy === 'model-asc') {
+                sortedModels.sort((a, b) => a.localeCompare(b));
+            } else if (sortBy === 'count-desc') {
+                sortedModels.sort((a, b) => grouped[b].length - grouped[a].length);
+            } else if (sortBy === 'count-asc') {
+                sortedModels.sort((a, b) => grouped[a].length - grouped[b].length);
+            }
+
+            renderOutput(grouped, sortedModels);
+        }
+
+        function renderOutput(groupedData, sortedModelKeys) {
+            const container = document.getElementById('output-container');
+            container.innerHTML = '';
+
+            if (sortedModelKeys.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">No photos match the selected filter criteria.</div>`;
+                return;
+            }
+
+            sortedModelKeys.forEach(modelKey => {
+                const photos = groupedData[modelKey];
+                
+                // Calculate date range for this specific model
+                const timestamps = photos.map(p => p.date.getTime()).filter(t => !isNaN(t));
+                const minDate = timestamps.length ? new Date(Math.min(...timestamps)).toLocaleDateString() : 'N/A';
+                const maxDate = timestamps.length ? new Date(Math.max(...timestamps)).toLocaleDateString() : 'N/A';
+                const dateRangeStr = minDate === maxDate ? minDate : `${minDate} - ${maxDate}`;
+
+                const card = document.createElement('div');
+                card.className = 'summary-card';
+
+                let rowsHtml = photos.map(p => `
+                    <tr>
+                        <td>${p.name}</td>
+                        <td>${p.date.toLocaleString()}</td>
+                        <td>${p.width} x ${p.height}</td>
+                        <td>${p.aspectRatio}</td>
+                    </tr>
+                `).join('');
+
+                card.innerHTML = `
+                    <div class="summary-header">
+                        <div>
+                            <h2>${modelKey}</h2>
+                            <span style="font-size:12px; color:var(--text-muted);">Date Range: ${dateRangeStr}</span>
+                        </div>
+                        <div class="summary-badge">${photos.length} Photo(s)</div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>File Name</th>
+                                <th>Capture Date</th>
+                                <th>Dimensions (WxH)</th>
+                                <th>Aspect Ratio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function clearFilters() {
+            document.getElementById('start-date').value = '';
+            document.getElementById('end-date').value = '';
+            document.getElementById('sort-by').value = 'model-asc';
+            applyFilters();
+            log("Filters reset.", '#ff9500');
+        }
+    </script>
+</body>
+</html>
