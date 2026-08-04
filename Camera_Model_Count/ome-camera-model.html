@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>OME Camera Model Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* BUILD v1 */
+:root{
+  --navy-950:#070d18;
+  --navy-900:#0c1830;
+  --navy-800:#122140;
+  --navy-700:#1a2e52;
+  --navy-600:#25406d;
+  --gold:#d4af37;
+  --gold-bright:#f0c94a;
+  --gold-dim:#8a7328;
+  --ink:#eae6da;
+  --ink-dim:#9aa6bd;
+  --ink-faint:#5f6c85;
+  --good:#5fbf8f;
+  --warn:#e0a94a;
+  --bad:#d9705f;
+  --radius:10px;
+  --font-display:'Orbitron',sans-serif;
+  --font-body:'DM Sans',sans-serif;
+  --font-mono:'DM Mono',monospace;
+}
+
+*{box-sizing:border-box;}
+
+html,body{
+  margin:0;
+  padding:0;
+  min-height:100dvh;
+  overflow-y:auto;
+  background:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(212,175,55,0.09), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(37,64,109,0.35), transparent 55%),
+    var(--navy-950);
+  color:var(--ink);
+  font-family:var(--font-body);
+}
+
+nav{
+  position:sticky;
+  top:0;
+  z-index:20;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 20px;
+  background:rgba(7,13,24,0.88);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--navy-700);
+}
+nav .title{
+  font-family:var(--font-display);
+  font-weight:800;
+  font-size:15px;
+  letter-spacing:0.06em;
+  color:var(--ink);
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+}
+nav .title .accent{color:var(--gold);}
+nav .stamp{
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--ink-faint);
+  cursor:default;
+  position:relative;
+}
+nav .stamp:hover{color:var(--ink-dim);}
+
+main{
+  max-width:900px;
+  margin:0 auto;
+  padding:28px 18px 80px;
+}
+
+.eyebrow{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  color:var(--gold-dim);
+  margin:0 0 6px;
+}
+h1{
+  font-family:var(--font-display);
+  font-weight:800;
+  font-size:clamp(22px,4vw,30px);
+  letter-spacing:0.01em;
+  margin:0 0 10px;
+  line-height:1.2;
+}
+.lede{
+  color:var(--ink-dim);
+  font-size:14.5px;
+  line-height:1.6;
+  max-width:62ch;
+  margin:0 0 28px;
+}
+.lede b{color:var(--ink);font-weight:500;}
+
+.panel{
+  background:linear-gradient(180deg, var(--navy-900), var(--navy-800));
+  border:1px solid var(--navy-700);
+  border-radius:var(--radius);
+  padding:20px;
+  margin-bottom:18px;
+}
+.panel h2{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:12.5px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--gold);
+  margin:0 0 14px;
+}
+
+/* --- Select zone --- */
+#dropZone{
+  border:1.5px dashed var(--navy-600);
+  border-radius:var(--radius);
+  padding:28px 20px;
+  text-align:center;
+  transition:border-color .15s, background .15s;
+}
+#dropZone.drag-over{
+  border-color:var(--gold);
+  background:rgba(212,175,55,0.06);
+}
+#fileInput{display:none;}
+.select-btn{
+  font-family:var(--font-body);
+  font-weight:700;
+  font-size:14.5px;
+  color:var(--navy-950);
+  background:linear-gradient(180deg, var(--gold-bright), var(--gold));
+  border:none;
+  border-radius:8px;
+  padding:12px 26px;
+  cursor:pointer;
+  letter-spacing:0.01em;
+}
+.select-btn:hover{filter:brightness(1.06);}
+.select-btn:active{transform:translateY(1px);}
+#dropZone .hint{
+  color:var(--ink-faint);
+  font-size:12.5px;
+  margin:14px 0 0;
+  line-height:1.55;
+}
+#dropZone .picked{
+  color:var(--ink);
+  font-size:13.5px;
+  margin:14px 0 0;
+  font-family:var(--font-mono);
+}
+
+/* --- Date filter --- */
+.date-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:16px;
+  align-items:flex-end;
+}
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.field label{
+  font-size:11.5px;
+  color:var(--ink-dim);
+  letter-spacing:0.03em;
+}
+input[type=date]{
+  font-family:var(--font-mono);
+  font-size:13.5px;
+  color:var(--ink);
+  background:var(--navy-950);
+  border:1px solid var(--navy-600);
+  border-radius:6px;
+  padding:8px 10px;
+  color-scheme:dark;
+}
+input[type=date]:focus{outline:2px solid var(--gold); outline-offset:1px;}
+.checkbox-field{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  color:var(--ink-dim);
+}
+.checkbox-field input{accent-color:var(--gold);}
+.date-hint{
+  color:var(--ink-faint);
+  font-size:12px;
+  line-height:1.55;
+  margin:14px 0 0;
+}
+
+.process-row{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin-top:18px;
+}
+.process-btn{
+  font-family:var(--font-body);
+  font-weight:700;
+  font-size:14px;
+  color:var(--navy-950);
+  background:linear-gradient(180deg, var(--gold-bright), var(--gold));
+  border:none;
+  border-radius:8px;
+  padding:11px 24px;
+  cursor:pointer;
+}
+.process-btn:disabled{
+  background:var(--navy-700);
+  color:var(--ink-faint);
+  cursor:not-allowed;
+}
+
+/* --- Progress --- */
+#progressSection .bar{
+  height:8px;
+  border-radius:4px;
+  background:var(--navy-950);
+  overflow:hidden;
+  border:1px solid var(--navy-700);
+}
+#progressSection .fill{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg, var(--gold-dim), var(--gold-bright));
+  transition:width .12s linear;
+}
+#progressSection p{
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  color:var(--ink-dim);
+  margin:10px 0 0;
+}
+
+/* --- Summary chips --- */
+.chip-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.chip{
+  background:var(--navy-950);
+  border:1px solid var(--navy-700);
+  border-radius:8px;
+  padding:10px 14px;
+  min-width:110px;
+}
+.chip .n{
+  font-family:var(--font-display);
+  font-weight:800;
+  font-size:20px;
+  color:var(--gold-bright);
+  line-height:1.1;
+}
+.chip .l{
+  font-size:11px;
+  color:var(--ink-faint);
+  letter-spacing:0.03em;
+  margin-top:2px;
+}
+.chip.warn .n{color:var(--warn);}
+.chip.bad .n{color:var(--bad);}
+
+/* --- Results table --- */
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:14px;
+}
+thead th{
+  text-align:left;
+  font-family:var(--font-mono);
+  font-size:11.5px;
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+  color:var(--gold);
+  padding:8px 10px;
+  border-bottom:1px solid var(--navy-600);
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
+}
+thead th:hover{color:var(--gold-bright);}
+thead th .arrow{color:var(--ink-faint); font-size:10px; margin-left:4px;}
+thead th.active .arrow{color:var(--gold-bright);}
+tbody td{
+  padding:9px 10px;
+  border-bottom:1px solid var(--navy-800);
+  font-family:var(--font-mono);
+  color:var(--ink);
+}
+tbody tr:hover{background:rgba(212,175,55,0.04);}
+tbody td.count{text-align:right; color:var(--ink-dim);}
+tbody tr.total td{
+  border-top:1px solid var(--navy-600);
+  border-bottom:none;
+  color:var(--gold-bright);
+  font-weight:500;
+  padding-top:12px;
+}
+
+.export-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:18px;
+}
+.ghost-btn{
+  font-family:var(--font-body);
+  font-weight:500;
+  font-size:13px;
+  color:var(--ink);
+  background:var(--navy-950);
+  border:1px solid var(--navy-600);
+  border-radius:7px;
+  padding:9px 16px;
+  cursor:pointer;
+}
+.ghost-btn:hover{border-color:var(--gold); color:var(--gold-bright);}
+.ghost-btn.copied{border-color:var(--good); color:var(--good);}
+
+/* --- Issues --- */
+details summary{
+  cursor:pointer;
+  font-size:13px;
+  color:var(--warn);
+  font-family:var(--font-mono);
+}
+details ul{
+  margin:12px 0 0;
+  padding-left:18px;
+  color:var(--ink-faint);
+  font-size:12.5px;
+  font-family:var(--font-mono);
+  line-height:1.8;
+  max-height:220px;
+  overflow-y:auto;
+}
+
+.hidden{display:none !important;}
+
+footer{
+  max-width:900px;
+  margin:0 auto;
+  padding:0 18px 40px;
+  color:var(--ink-faint);
+  font-size:11.5px;
+  line-height:1.6;
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="title">OME <span class="accent">Camera Model Report</span></div>
+  <div class="stamp" data-version="Build v01 · 2026-08-04 17:32 AEST" title="Build v01 · 2026-08-04 17:32 AEST">v01</div>
+</nav>
+
+<main>
+  <p class="eyebrow">EXIF / HEIC metadata utility</p>
+  <h1>Camera Model Report</h1>
+  <p class="lede">
+    Select a batch of photos and this tallies them by <b>Camera Model</b>, read directly from
+    each file's EXIF data — JPEG and HEIC both supported. Everything runs locally in this tab;
+    nothing is uploaded anywhere.
+  </p>
+
+  <div class="panel">
+    <h2>1 — Select photos</h2>
+    <div id="dropZone">
+      <input type="file" id="fileInput" multiple accept="image/*,.heic,.heif,.jpg,.jpeg">
+      <button class="select-btn" id="selectBtn" type="button">Select Photos…</button>
+      <p class="hint">
+        On iPad/iPhone this opens the Photos picker — use Select in the top corner to multi-pick
+        or drag across thumbnails. On a Mac or PC you can also drag photos straight into this box.
+        <br>Picking a photo this way makes iOS download the full original if it's only stored in
+        iCloud, so Camera Model comes through even for photos affected by Optimize Storage.
+      </p>
+      <p class="picked hidden" id="pickedSummary"></p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>2 — Narrow by date (optional)</h2>
+    <div class="date-row">
+      <div class="field">
+        <label for="dateFrom">From</label>
+        <input type="date" id="dateFrom">
+      </div>
+      <div class="field">
+        <label for="dateTo">To</label>
+        <input type="date" id="dateTo">
+      </div>
+      <div class="checkbox-field">
+        <input type="checkbox" id="includeNoDate" checked>
+        <label for="includeNoDate">Include photos with no readable date</label>
+      </div>
+    </div>
+    <p class="date-hint">
+      This filters whichever photos you selected above — a browser can't query your Photos
+      library by date on its own, so pick a broad batch first (e.g. everything from 2020) and
+      let this narrow it down. Both dates are inclusive, covering the full day. Filtering uses
+      each photo's EXIF capture date; if a photo has none, it falls back to the file's modified
+      date and is marked accordingly below.
+    </p>
+    <div class="process-row">
+      <button class="process-btn" id="processBtn" type="button" disabled>Run Report</button>
+      <span id="processHint" style="font-size:12.5px;color:var(--ink-faint);">Select photos first</span>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="progressSection">
+    <h2>Processing</h2>
+    <div class="bar"><div class="fill" id="progressFill"></div></div>
+    <p id="progressText">—</p>
+  </div>
+
+  <div class="panel hidden" id="summarySection">
+    <h2>Summary</h2>
+    <div class="chip-row" id="chipRow"></div>
+  </div>
+
+  <div class="panel hidden" id="resultsSection">
+    <h2>Camera Models</h2>
+    <table>
+      <thead>
+        <tr>
+          <th data-sort="model" id="thModel">Camera Model <span class="arrow">↕</span></th>
+          <th data-sort="count" id="thCount">Count <span class="arrow">↕</span></th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+    <div class="export-row">
+      <button class="ghost-btn" id="copyReportBtn" type="button">Copy Report Text</button>
+      <button class="ghost-btn" id="downloadCsvBtn" type="button">Download CSV</button>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="issuesSection">
+    <details>
+      <summary id="issuesSummary">0 files skipped or unreadable</summary>
+      <ul id="issuesList"></ul>
+    </details>
+  </div>
+</main>
+
+<footer>
+  Runs entirely in-browser — photo bytes never leave this device. Width/height is captured per
+  photo for a future "non-4:3-original" subtotal by camera model (see PHOTO_RECORDS in code).
+</footer>
+
+<script>
+// ============================================================
+// Image metadata core: format sniff + JPEG/HEIC EXIF extraction
+// Pure functions over ArrayBuffer/DataView.
+// Validated against real JPEG EXIF and real-world HEIC/ISOBMFF
+// samples (incl. hand-decoded iinf/iloc/ispe box layouts) before
+// being pasted into this file.
+// ============================================================
+
+const TIFF_TAG_MAKE = 0x010F;
+const TIFF_TAG_MODEL = 0x0110;
+const TIFF_TAG_ORIENTATION = 0x0112;
+const TIFF_TAG_EXIF_IFD_PTR = 0x8769;
+const TIFF_TAG_DATETIME_ORIGINAL = 0x9003;
+const TIFF_TAG_DATETIME = 0x0132;
+
+function detectFormat(buf) {
+  const dv = new DataView(buf);
+  if (buf.byteLength >= 3 && dv.getUint8(0) === 0xFF && dv.getUint8(1) === 0xD8) return 'jpeg';
+  if (buf.byteLength >= 12) {
+    const type = readAscii(dv, 4, 4);
+    if (type === 'ftyp') {
+      const brand = readAscii(dv, 8, 4);
+      if (['heic','heix','hevc','hevx','heim','heis','hevm','hevs','mif1','msf1'].includes(brand)) return 'heic';
+    }
+  }
+  if (buf.byteLength >= 8 && dv.getUint32(0) === 0x89504E47) return 'png';
+  return 'unknown';
+}
+
+function readAscii(dv, offset, len) {
+  let s = '';
+  for (let i = 0; i < len; i++) s += String.fromCharCode(dv.getUint8(offset + i));
+  return s;
+}
+
+function parseTIFF(dv, tiffStart) {
+  if (tiffStart + 8 > dv.byteLength) return null;
+  const b0 = dv.getUint8(tiffStart), b1 = dv.getUint8(tiffStart + 1);
+  let little;
+  if (b0 === 0x49 && b1 === 0x49) little = true;
+  else if (b0 === 0x4D && b1 === 0x4D) little = false;
+  else return null;
+
+  const magic = dv.getUint16(tiffStart + 2, little);
+  if (magic !== 42) return null;
+
+  const ifd0Offset = dv.getUint32(tiffStart + 4, little);
+  const result = { make:null, model:null, orientation:null, dateTimeOriginal:null, dateTime:null };
+
+  function readIFD(ifdAbsOffset, wantExifPtr) {
+    if (ifdAbsOffset < 0 || tiffStart + ifdAbsOffset + 2 > dv.byteLength) return;
+    const entryCount = dv.getUint16(tiffStart + ifdAbsOffset, little);
+    let exifIfdPtr = null;
+    for (let i = 0; i < entryCount; i++) {
+      const entryOffset = tiffStart + ifdAbsOffset + 2 + i * 12;
+      if (entryOffset + 12 > dv.byteLength) break;
+      const tag = dv.getUint16(entryOffset, little);
+      const type = dv.getUint16(entryOffset + 2, little);
+      const count = dv.getUint32(entryOffset + 4, little);
+      const valueFieldOffset = entryOffset + 8;
+
+      if (tag === TIFF_TAG_MAKE || tag === TIFF_TAG_MODEL) {
+        const str = readTiffString(dv, tiffStart, valueFieldOffset, type, count, little);
+        if (tag === TIFF_TAG_MAKE) result.make = str; else result.model = str;
+      } else if (tag === TIFF_TAG_ORIENTATION && type === 3) {
+        result.orientation = dv.getUint16(valueFieldOffset, little);
+      } else if (tag === TIFF_TAG_DATETIME_ORIGINAL && type === 2) {
+        result.dateTimeOriginal = readTiffString(dv, tiffStart, valueFieldOffset, type, count, little);
+      } else if (tag === TIFF_TAG_DATETIME && type === 2) {
+        result.dateTime = readTiffString(dv, tiffStart, valueFieldOffset, type, count, little);
+      } else if (tag === TIFF_TAG_EXIF_IFD_PTR) {
+        exifIfdPtr = dv.getUint32(valueFieldOffset, little);
+      }
+    }
+    if (wantExifPtr && exifIfdPtr !== null) readIFD(exifIfdPtr, false);
+  }
+
+  try { readIFD(ifd0Offset, true); } catch (e) { /* return whatever was collected */ }
+  return result;
+}
+
+function readTiffString(dv, tiffStart, valueFieldOffset, type, count, little) {
+  const byteLen = count;
+  let dataAbsOffset;
+  if (byteLen <= 4) {
+    dataAbsOffset = valueFieldOffset;
+  } else {
+    const relOffset = dv.getUint32(valueFieldOffset, little);
+    dataAbsOffset = tiffStart + relOffset;
+  }
+  if (dataAbsOffset < 0 || dataAbsOffset + byteLen > dv.byteLength) return null;
+  let s = '';
+  for (let i = 0; i < byteLen; i++) {
+    const c = dv.getUint8(dataAbsOffset + i);
+    if (c === 0) break;
+    s += String.fromCharCode(c);
+  }
+  return s.trim() || null;
+}
+
+function parseJPEG(buf) {
+  const dv = new DataView(buf);
+  const out = { make:null, model:null, orientation:null, dateTimeOriginal:null, dateTime:null, width:null, height:null, hasExif:false };
+  let offset = 2;
+  const len = buf.byteLength;
+
+  while (offset + 4 <= len) {
+    if (dv.getUint8(offset) !== 0xFF) { offset++; continue; }
+    let marker = dv.getUint8(offset + 1);
+    while (marker === 0xFF && offset + 2 < len) { offset++; marker = dv.getUint8(offset + 1); }
+
+    if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD9)) {
+      offset += 2;
+      if (marker === 0xD9) break;
+      continue;
+    }
+
+    if (offset + 4 > len) break;
+    const segLen = dv.getUint16(offset + 2, false);
+    const segStart = offset + 4;
+
+    if (marker === 0xE1 && segLen >= 8) {
+      const tag = readAscii(dv, segStart, 4);
+      if (tag === 'Exif' && dv.getUint8(segStart + 4) === 0 && dv.getUint8(segStart + 5) === 0) {
+        out.hasExif = true;
+        const tiff = parseTIFF(dv, segStart + 6);
+        if (tiff) Object.assign(out, tiff);
+      }
+    } else if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+      if (segLen >= 7) {
+        out.height = dv.getUint16(offset + 5, false);
+        out.width = dv.getUint16(offset + 7, false);
+      }
+    } else if (marker === 0xDA) {
+      break;
+    }
+
+    offset = offset + 2 + segLen;
+  }
+  return out;
+}
+
+function readBoxHeader(dv, offset) {
+  if (offset + 8 > dv.byteLength) return null;
+  let size = dv.getUint32(offset, false);
+  const type = readAscii(dv, offset + 4, 4);
+  let headerLen = 8;
+  if (size === 1) {
+    if (offset + 16 > dv.byteLength) return null;
+    const hi = dv.getUint32(offset + 8, false);
+    const lo = dv.getUint32(offset + 12, false);
+    size = hi * 4294967296 + lo;
+    headerLen = 16;
+  } else if (size === 0) {
+    size = dv.byteLength - offset;
+  }
+  return { type, size, headerLen, start: offset, contentStart: offset + headerLen };
+}
+
+function findChildBoxes(dv, containerStart, containerEnd, extraHeaderSkip) {
+  const boxes = [];
+  let pos = containerStart + (extraHeaderSkip || 0);
+  while (pos < containerEnd) {
+    const box = readBoxHeader(dv, pos);
+    if (!box || box.size < box.headerLen) break;
+    boxes.push(box);
+    pos = box.start + box.size;
+  }
+  return boxes;
+}
+
+function findIlocExtent(dv, ilocBox, targetItemId) {
+  let p = ilocBox.contentStart;
+  const version = dv.getUint8(p);
+  p += 4;
+  const sizesByte1 = dv.getUint8(p); p += 1;
+  const sizesByte2 = dv.getUint8(p); p += 1;
+  const offsetSize = (sizesByte1 >> 4) & 0xF;
+  const lengthSize = sizesByte1 & 0xF;
+  const baseOffsetSize = (sizesByte2 >> 4) & 0xF;
+  const indexSize = (version === 1 || version === 2) ? (sizesByte2 & 0xF) : 0;
+
+  let itemCount;
+  if (version < 2) { itemCount = dv.getUint16(p, false); p += 2; }
+  else { itemCount = dv.getUint32(p, false); p += 4; }
+
+  function readN(bytes) {
+    if (bytes === 0) return 0;
+    let v = 0;
+    for (let i = 0; i < bytes; i++) v = v * 256 + dv.getUint8(p + i);
+    p += bytes;
+    return v;
+  }
+
+  for (let i = 0; i < itemCount; i++) {
+    let itemId;
+    if (version < 2) { itemId = dv.getUint16(p, false); p += 2; }
+    else { itemId = dv.getUint32(p, false); p += 4; }
+
+    if (version === 1 || version === 2) p += 2; // construction_method
+    p += 2; // data_reference_index
+    const baseOffset = readN(baseOffsetSize);
+    const extentCount = dv.getUint16(p, false); p += 2;
+
+    let firstExtent = null;
+    for (let e = 0; e < extentCount; e++) {
+      if ((version === 1 || version === 2) && indexSize > 0) readN(indexSize);
+      const extOffset = readN(offsetSize);
+      const extLength = readN(lengthSize);
+      if (e === 0) firstExtent = { offset: baseOffset + extOffset, length: extLength };
+    }
+    if (itemId === targetItemId) return firstExtent;
+  }
+  return null;
+}
+
+function findPrimaryIspe(dv, iprpBox) {
+  const iprpChildren = findChildBoxes(dv, iprpBox.contentStart, iprpBox.start + iprpBox.size, 0);
+  const ipco = iprpChildren.find(b => b.type === 'ipco');
+  if (!ipco) return null;
+  const props = findChildBoxes(dv, ipco.contentStart, ipco.start + ipco.size, 0);
+  for (const prop of props) {
+    if (prop.type === 'ispe') {
+      const width = dv.getUint32(prop.contentStart + 4, false);
+      const height = dv.getUint32(prop.contentStart + 8, false);
+      if (width && height) return { width, height };
+    }
+  }
+  return null;
+}
+
+function parseHEIC(buf) {
+  const dv = new DataView(buf);
+  const out = { make:null, model:null, orientation:null, dateTimeOriginal:null, dateTime:null, width:null, height:null, hasExif:false };
+
+  const top = findChildBoxes(dv, 0, buf.byteLength, 0);
+  const metaBox = top.find(b => b.type === 'meta');
+  if (!metaBox) return out;
+
+  const metaChildren = findChildBoxes(dv, metaBox.contentStart, metaBox.start + metaBox.size, 4);
+  const iinfBox = metaChildren.find(b => b.type === 'iinf');
+  const ilocBox = metaChildren.find(b => b.type === 'iloc');
+  const iprpBox = metaChildren.find(b => b.type === 'iprp');
+
+  let exifItemId = null;
+
+  if (iinfBox) {
+    const version = dv.getUint8(iinfBox.contentStart);
+    const entryCountOffset = iinfBox.contentStart + 4;
+    const infeStart = entryCountOffset + (version === 0 ? 2 : 4);
+    const infeBoxes = findChildBoxes(dv, infeStart, iinfBox.start + iinfBox.size, 0);
+    for (const infe of infeBoxes) {
+      if (infe.type !== 'infe') continue;
+      const infeVersion = dv.getUint8(infe.contentStart);
+      let p = infe.contentStart + 4;
+      let itemId;
+      if (infeVersion === 2) { itemId = dv.getUint16(p, false); p += 2; }
+      else if (infeVersion === 3) { itemId = dv.getUint32(p, false); p += 4; }
+      else continue;
+      p += 2; // item_protection_index
+      const itemType = readAscii(dv, p, 4);
+      if (itemType === 'Exif') exifItemId = itemId;
+    }
+  }
+
+  if (ilocBox && exifItemId !== null) {
+    try {
+      const extent = findIlocExtent(dv, ilocBox, exifItemId);
+      if (extent) {
+        const exifAbsStart = extent.offset;
+        if (exifAbsStart + 4 <= dv.byteLength) {
+          const maybeTag = readAscii(dv, exifAbsStart + 4, 4);
+          if (maybeTag === 'Exif') {
+            out.hasExif = true;
+            const tiff = parseTIFF(dv, exifAbsStart + 4 + 6);
+            if (tiff) Object.assign(out, tiff);
+          } else {
+            const tiffRelOffset = dv.getUint32(exifAbsStart, false);
+            const tiff = parseTIFF(dv, exifAbsStart + 4 + tiffRelOffset);
+            if (tiff) { out.hasExif = true; Object.assign(out, tiff); }
+          }
+        }
+      }
+    } catch (e) { /* leave out.* as-is */ }
+  }
+
+  if (iprpBox) {
+    try {
+      const dims = findPrimaryIspe(dv, iprpBox);
+      if (dims) { out.width = dims.width; out.height = dims.height; }
+    } catch (e) { /* dimensions optional */ }
+  }
+
+  return out;
+}
+
+function parseImageMetadata(buf, fileName) {
+  const format = detectFormat(buf);
+  let meta;
+  if (format === 'jpeg') meta = parseJPEG(buf);
+  else if (format === 'heic') meta = parseHEIC(buf);
+  else meta = { make:null, model:null, orientation:null, dateTimeOriginal:null, dateTime:null, width:null, height:null, hasExif:false };
+  meta.format = format;
+  meta.fileName = fileName || null;
+  return meta;
+}
+
+// ============================================================
+// UI wiring
+// ============================================================
+
+const fileInput = document.getElementById('fileInput');
+const selectBtn = document.getElementById('selectBtn');
+const dropZone = document.getElementById('dropZone');
+const pickedSummary = document.getElementById('pickedSummary');
+const processBtn = document.getElementById('processBtn');
+const processHint = document.getElementById('processHint');
+const dateFrom = document.getElementById('dateFrom');
+const dateTo = document.getElementById('dateTo');
+const includeNoDate = document.getElementById('includeNoDate');
+
+const progressSection = document.getElementById('progressSection');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+
+const summarySection = document.getElementById('summarySection');
+const chipRow = document.getElementById('chipRow');
+
+const resultsSection = document.getElementById('resultsSection');
+const resultsBody = document.getElementById('resultsBody');
+const thModel = document.getElementById('thModel');
+const thCount = document.getElementById('thCount');
+
+const issuesSection = document.getElementById('issuesSection');
+const issuesSummary = document.getElementById('issuesSummary');
+const issuesList = document.getElementById('issuesList');
+
+const copyReportBtn = document.getElementById('copyReportBtn');
+const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+
+let selectedFiles = [];
+// PHOTO_RECORDS: one row per successfully-read photo, kept after processing
+// so later work (e.g. a non-4:3-original subtotal per camera model) can
+// reuse width/height/model without re-parsing every file.
+//   { fileName, model, make, width, height, dateSource: 'exif'|'file'|'none', dateUsed }
+let PHOTO_RECORDS = [];
+let issues = []; // { fileName, reason }
+let sortState = { column: 'count', dir: 'desc' };
+let lastCounts = []; // [{model, count}], set after each run, drives table + exports
+let lastMeta = { generatedAt: null, from: null, to: null, totalSelected: 0, totalMatched: 0 };
+
+selectBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+  setSelectedFiles(Array.from(e.target.files || []));
+});
+
+['dragenter','dragover'].forEach(evt => {
+  dropZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+});
+['dragleave','drop'].forEach(evt => {
+  dropZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+  });
+});
+dropZone.addEventListener('drop', (e) => {
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+  if (files.length) setSelectedFiles(files);
+});
+
+function setSelectedFiles(files) {
+  selectedFiles = files;
+  if (files.length === 0) {
+    pickedSummary.classList.add('hidden');
+    processBtn.disabled = true;
+    processHint.textContent = 'Select photos first';
+    return;
+  }
+  pickedSummary.classList.remove('hidden');
+  pickedSummary.textContent = `${files.length} photo${files.length === 1 ? '' : 's'} selected`;
+  processBtn.disabled = false;
+  processHint.textContent = 'Ready';
+}
+
+processBtn.addEventListener('click', runReport);
+
+async function runReport() {
+  processBtn.disabled = true;
+  selectBtn.disabled = true;
+  progressSection.classList.remove('hidden');
+  summarySection.classList.add('hidden');
+  resultsSection.classList.add('hidden');
+  issuesSection.classList.add('hidden');
+
+  PHOTO_RECORDS = [];
+  issues = [];
+
+  const total = selectedFiles.length;
+  const fromVal = dateFrom.value ? new Date(dateFrom.value + 'T00:00:00') : null;
+  const toVal = dateTo.value ? new Date(dateTo.value + 'T23:59:59.999') : null;
+  const includeNoDateVal = includeNoDate.checked;
+
+  let processed = 0;
+  let matched = 0;
+  let noExifCount = 0;
+  let unreadableCount = 0;
+
+  for (const file of selectedFiles) {
+    processed++;
+    progressFill.style.width = Math.round((processed / total) * 100) + '%';
+    progressText.textContent = `Reading ${processed} / ${total} — ${file.name}`;
+    // Yield to the browser periodically so the UI stays responsive
+    if (processed % 5 === 0) await new Promise(r => setTimeout(r, 0));
+
+    let meta;
+    try {
+      const buf = await file.arrayBuffer();
+      meta = parseImageMetadata(buf, file.name);
+    } catch (err) {
+      issues.push({ fileName: file.name, reason: 'Could not be read (' + err.message + ')' });
+      unreadableCount++;
+      continue;
+    }
+
+    if (meta.format === 'unknown') {
+      issues.push({ fileName: file.name, reason: 'Unrecognised file format' });
+      unreadableCount++;
+      continue;
+    }
+
+    // Resolve a usable date + source
+    let dateUsed = null, dateSource = 'none';
+    const rawDate = meta.dateTimeOriginal || meta.dateTime;
+    if (rawDate) {
+      const iso = rawDate.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+      const d = new Date(iso);
+      if (!isNaN(d)) { dateUsed = d; dateSource = 'exif'; }
+    }
+    if (!dateUsed && file.lastModified) {
+      dateUsed = new Date(file.lastModified);
+      dateSource = 'file';
+    }
+
+    // Apply date filter
+    if (fromVal || toVal) {
+      if (!dateUsed) {
+        if (!includeNoDateVal) continue;
+      } else {
+        if (fromVal && dateUsed < fromVal) continue;
+        if (toVal && dateUsed > toVal) continue;
+      }
+    }
+
+    matched++;
+    if (!meta.hasExif) noExifCount++;
+
+    PHOTO_RECORDS.push({
+      fileName: file.name,
+      model: meta.model || null,
+      make: meta.make || null,
+      width: meta.width || null,
+      height: meta.height || null,
+      dateSource,
+      dateUsed: dateUsed ? dateUsed.toISOString() : null
+    });
+  }
+
+  progressFill.style.width = '100%';
+  progressText.textContent = `Done — ${processed} photo${processed === 1 ? '' : 's'} read`;
+
+  lastMeta = {
+    generatedAt: new Date(),
+    from: dateFrom.value || null,
+    to: dateTo.value || null,
+    totalSelected: total,
+    totalMatched: matched
+  };
+
+  renderSummary({ total, matched, noExifCount, unreadableCount });
+  computeAndRenderResults();
+  renderIssues();
+
+  processBtn.disabled = false;
+  selectBtn.disabled = false;
+
+  setTimeout(() => progressSection.classList.add('hidden'), 600);
+}
+
+function renderSummary({ total, matched, noExifCount, unreadableCount }) {
+  summarySection.classList.remove('hidden');
+  const chips = [
+    { n: total, l: 'Photos selected' },
+    { n: matched, l: (dateFrom.value || dateTo.value) ? 'In date range' : 'Processed' },
+    { n: noExifCount, l: 'No camera data', cls: noExifCount ? 'warn' : '' },
+    { n: unreadableCount, l: 'Unreadable', cls: unreadableCount ? 'bad' : '' },
+  ];
+  chipRow.innerHTML = chips.map(c => `
+    <div class="chip ${c.cls || ''}">
+      <div class="n">${c.n}</div>
+      <div class="l">${c.l}</div>
+    </div>
+  `).join('');
+}
+
+function computeAndRenderResults() {
+  const counts = new Map();
+  let noModelCount = 0;
+  for (const rec of PHOTO_RECORDS) {
+    const key = rec.model || '(No Camera Model)';
+    if (!rec.model) noModelCount++;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  lastCounts = Array.from(counts.entries()).map(([model, count]) => ({ model, count }));
+  resultsSection.classList.remove('hidden');
+  applySortAndRender();
+}
+
+function applySortAndRender() {
+  const rows = [...lastCounts];
+  rows.sort((a, b) => {
+    let cmp;
+    if (sortState.column === 'model') cmp = a.model.localeCompare(b.model);
+    else cmp = a.count - b.count;
+    return sortState.dir === 'asc' ? cmp : -cmp;
+  });
+
+  thModel.classList.toggle('active', sortState.column === 'model');
+  thCount.classList.toggle('active', sortState.column === 'count');
+  thModel.querySelector('.arrow').textContent = sortState.column === 'model' ? (sortState.dir === 'asc' ? '↑' : '↓') : '↕';
+  thCount.querySelector('.arrow').textContent = sortState.column === 'count' ? (sortState.dir === 'asc' ? '↑' : '↓') : '↕';
+
+  const total = rows.reduce((s, r) => s + r.count, 0);
+  resultsBody.innerHTML = rows.map(r => `
+    <tr><td>${escapeHtml(r.model)}</td><td class="count">${r.count}</td></tr>
+  `).join('') + `<tr class="total"><td>Total</td><td class="count">${total}</td></tr>`;
+}
+
+thModel.addEventListener('click', () => setSort('model'));
+thCount.addEventListener('click', () => setSort('count'));
+function setSort(column) {
+  if (sortState.column === column) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  else { sortState.column = column; sortState.dir = column === 'model' ? 'asc' : 'desc'; }
+  applySortAndRender();
+}
+
+function renderIssues() {
+  if (issues.length === 0) {
+    issuesSection.classList.add('hidden');
+    return;
+  }
+  issuesSection.classList.remove('hidden');
+  issuesSummary.textContent = `${issues.length} file${issues.length === 1 ? '' : 's'} skipped or unreadable`;
+  issuesList.innerHTML = issues.map(i => `<li>${escapeHtml(i.fileName)} — ${escapeHtml(i.reason)}</li>`).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatReportDate(d) {
+  const day = d.getDate();
+  const month = d.toLocaleString('en-GB', { month: 'short' });
+  const year = d.getFullYear();
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return `${day} ${month} ${year} at ${time}`;
+}
+function formatShortDate(isoDateStr) {
+  const d = new Date(isoDateStr + 'T00:00:00');
+  return `${d.getDate()} ${d.toLocaleString('en-GB', { month: 'short' })} ${d.getFullYear()}`;
+}
+
+function buildReportText() {
+  const rows = [...lastCounts].sort((a, b) => {
+    let cmp = sortState.column === 'model' ? a.model.localeCompare(b.model) : a.count - b.count;
+    return sortState.dir === 'asc' ? cmp : -cmp;
+  });
+  const rangeText = (lastMeta.from || lastMeta.to)
+    ? `${lastMeta.from ? formatShortDate(lastMeta.from) : 'earliest'} to ${lastMeta.to ? formatShortDate(lastMeta.to) : 'latest'}`
+    : 'All selected photos';
+
+  let out = 'Camera Models Report\n';
+  out += formatReportDate(lastMeta.generatedAt) + '\n';
+  out += 'Date Range: ' + rangeText + '\n';
+  out += '------------------------------------\n';
+  for (const r of rows) out += `${r.model}  : ${r.count}\n`;
+  out += '~ End of Report ~';
+  return out;
+}
+
+copyReportBtn.addEventListener('click', async () => {
+  const text = buildReportText();
+  try {
+    await navigator.clipboard.writeText(text);
+    copyReportBtn.textContent = 'Copied ✓';
+    copyReportBtn.classList.add('copied');
+    setTimeout(() => { copyReportBtn.textContent = 'Copy Report Text'; copyReportBtn.classList.remove('copied'); }, 1600);
+  } catch (e) {
+    // Fallback for browsers/contexts without Clipboard API permission
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    copyReportBtn.textContent = 'Copied ✓';
+    setTimeout(() => { copyReportBtn.textContent = 'Copy Report Text'; }, 1600);
+  }
+});
+
+downloadCsvBtn.addEventListener('click', () => {
+  const rows = [...lastCounts].sort((a, b) => {
+    let cmp = sortState.column === 'model' ? a.model.localeCompare(b.model) : a.count - b.count;
+    return sortState.dir === 'asc' ? cmp : -cmp;
+  });
+  let csv = 'Camera Model,Count\n';
+  for (const r of rows) csv += `"${r.model.replace(/"/g, '""')}",${r.count}\n`;
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = lastMeta.generatedAt.toISOString().slice(0,10);
+  a.href = url;
+  a.download = `camera-model-report-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+</script>
+<!-- BUILD v1 (ome-camera-model-report-v01.html) — 2026-08-04 17:32 AEST -->
+</body>
+</html>
