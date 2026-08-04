@@ -55,7 +55,7 @@
         }
 
         #drop-zone {
-            border: 2px dashed var(--border); border-radius: 12px; padding: 30px; text-align: center;
+            border: 2px dashed var(--border); border-radius: 12px; padding: 26px; text-align: center;
             background: var(--bg-surface); cursor: pointer; transition: all 0.2s ease;
         }
         #drop-zone:hover, #drop-zone.dragover { border-color: var(--accent); background: var(--bg-card); }
@@ -97,7 +97,7 @@
     <header>
         <div class="title">
             <h1>CAMERA MODEL METADATA ANALYZER</h1>
-            <span>EXIF Extraction, Date Filtering & Model Summary Engine</span>
+            <span>EXIF Extraction, Summary Totals, Date Filtering & Model Listings</span>
         </div>
         <div class="stats">
             <div class="stat-card">Parsed: <span id="s-total" style="color:var(--accent)">0</span></div>
@@ -281,10 +281,10 @@
                 sortedModels.sort((a, b) => grouped[a].length - grouped[b].length);
             }
 
-            renderOutput(grouped, sortedModels);
+            renderOutput(grouped, sortedModels, filtered.length);
         }
 
-        function renderOutput(groupedData, sortedModelKeys) {
+        function renderOutput(groupedData, sortedModelKeys, totalFilteredCount) {
             const container = document.getElementById('output-container');
             container.innerHTML = '';
 
@@ -293,10 +293,63 @@
                 return;
             }
 
+            // ── 1. CAMERA MODEL OVERVIEW SUMMARY TABLE ───────────────────
+            const summaryCard = document.createElement('div');
+            summaryCard.className = 'summary-card';
+            summaryCard.style.borderLeft = '4px solid var(--accent)';
+
+            let summaryRowsHtml = '';
+            sortedModelKeys.forEach(modelKey => {
+                const photos = groupedData[modelKey];
+                const count = photos.length;
+                const sharePct = totalFilteredCount > 0 ? ((count / totalFilteredCount) * 100).toFixed(1) : 0;
+
+                const timestamps = photos.map(p => p.date.getTime()).filter(t => !isNaN(t));
+                const minDate = timestamps.length ? new Date(Math.min(...timestamps)).toLocaleDateString() : 'N/A';
+                const maxDate = timestamps.length ? new Date(Math.max(...timestamps)).toLocaleDateString() : 'N/A';
+                const dateRangeStr = minDate === maxDate ? minDate : `${minDate} - ${maxDate}`;
+
+                summaryRowsHtml += `
+                    <tr>
+                        <td style="font-weight:600; color:var(--text);">${modelKey}</td>
+                        <td style="color:var(--accent); font-weight:700;">${count}</td>
+                        <td>${sharePct}%</td>
+                        <td>${dateRangeStr}</td>
+                    </tr>
+                `;
+            });
+
+            summaryCard.innerHTML = `
+                <div class="summary-header">
+                    <h2>Camera Model Summary Overview</h2>
+                    <div class="summary-badge" style="color: var(--accent); border-color: var(--accent);">${sortedModelKeys.length} Model(s) Total</div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Camera Model</th>
+                            <th>Photo Count</th>
+                            <th>Share of Batch</th>
+                            <th>Date Range</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${summaryRowsHtml}
+                    </tbody>
+                </table>
+            `;
+            container.appendChild(summaryCard);
+
+            // ── 2. SECTION DIVIDER ─────────────────────────────────────────
+            const sectionTitle = document.createElement('h3');
+            sectionTitle.style.cssText = 'font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin: 24px 0 12px 4px;';
+            sectionTitle.innerText = 'Detailed Photo Listings by Model';
+            container.appendChild(sectionTitle);
+
+            // ── 3. DETAILED LISTING CARDS PER CAMERA MODEL ────────────────
             sortedModelKeys.forEach(modelKey => {
                 const photos = groupedData[modelKey];
                 
-                // Calculate date range for this specific model
                 const timestamps = photos.map(p => p.date.getTime()).filter(t => !isNaN(t));
                 const minDate = timestamps.length ? new Date(Math.min(...timestamps)).toLocaleDateString() : 'N/A';
                 const maxDate = timestamps.length ? new Date(Math.max(...timestamps)).toLocaleDateString() : 'N/A';
