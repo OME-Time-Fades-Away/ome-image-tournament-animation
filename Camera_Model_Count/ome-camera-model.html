@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* BUILD v1 */
+/* BUILD v3 */
 :root{
   --navy-950:#070d18;
   --navy-900:#0c1830;
@@ -280,6 +280,19 @@ input[type=date]:focus{outline:2px solid var(--gold); outline-offset:1px;}
 }
 .chip.warn .n{color:var(--warn);}
 .chip.bad .n{color:var(--bad);}
+.summary-note{
+  color:var(--ink-faint);
+  font-size:12px;
+  line-height:1.55;
+  margin:14px 0 0;
+}
+.table-note{
+  color:var(--ink-faint);
+  font-size:11.5px;
+  line-height:1.6;
+  margin:14px 0 0;
+}
+.table-note b{color:var(--ink-dim); font-weight:600;}
 
 /* --- Results table --- */
 table{
@@ -373,7 +386,7 @@ footer{
 
 <nav>
   <div class="title">OME <span class="accent">Camera Model Report</span></div>
-  <div class="stamp" data-version="Build v01 · 2026-08-04 17:32 AEST" title="Build v01 · 2026-08-04 17:32 AEST">v01</div>
+  <div class="stamp" data-version="Build v03 · 2026-08-05 11:24 AEST" title="Build v03 · 2026-08-05 11:24 AEST">v03</div>
 </nav>
 
 <main>
@@ -386,15 +399,17 @@ footer{
   </p>
 
   <div class="panel">
-    <h2>1 — Select photos</h2>
+    <h2>1 — Select photos &amp; videos</h2>
     <div id="dropZone">
-      <input type="file" id="fileInput" multiple accept="image/*,.heic,.heif,.jpg,.jpeg">
-      <button class="select-btn" id="selectBtn" type="button">Select Photos…</button>
+      <input type="file" id="fileInput" multiple accept="image/*,video/*,.heic,.heif,.jpg,.jpeg,.mov,.mp4,.m4v">
+      <button class="select-btn" id="selectBtn" type="button">Select Photos &amp; Videos…</button>
       <p class="hint">
         On iPad/iPhone this opens the Photos picker — use Select in the top corner to multi-pick
         or drag across thumbnails. On a Mac or PC you can also drag photos straight into this box.
-        <br>Picking a photo this way makes iOS download the full original if it's only stored in
-        iCloud, so Camera Model comes through even for photos affected by Optimize Storage.
+        <br>Picking this way makes iOS download the full original if it's only stored in iCloud,
+        so Camera Model comes through even for photos affected by Optimize Storage.
+        <br>Videos aren't opened, just checked by name — Screen Recordings are detected from
+        iOS's default "RPReplay_Final…" filename, everything else is grouped as "Video (other)".
       </p>
       <p class="picked hidden" id="pickedSummary"></p>
     </div>
@@ -438,6 +453,7 @@ footer{
   <div class="panel hidden" id="summarySection">
     <h2>Summary</h2>
     <div class="chip-row" id="chipRow"></div>
+    <p class="summary-note" id="summaryNote"></p>
   </div>
 
   <div class="panel hidden" id="resultsSection">
@@ -451,6 +467,12 @@ footer{
       </thead>
       <tbody id="resultsBody"></tbody>
     </table>
+    <p class="table-note">
+      <b>Screenshot</b> = PNG image with no camera tag (iOS default for screenshots and Markup
+      exports). <b>Screen Recording</b> = filename matches iOS's default
+      "RPReplay_Final…" naming. <b>Video (other)</b> = any other video file, not analysed
+      further. Everything else is a real EXIF Camera Model.
+    </p>
     <div class="export-row">
       <button class="ghost-btn" id="copyReportBtn" type="button">Copy Report Text</button>
       <button class="ghost-btn" id="downloadCsvBtn" type="button">Download CSV</button>
@@ -767,14 +789,59 @@ function parseHEIC(buf) {
   return out;
 }
 
+function parsePNG(buf) {
+  const dv = new DataView(buf);
+  const out = { make:null, model:null, orientation:null, dateTimeOriginal:null, dateTime:null, width:null, height:null, hasExif:false };
+  // PNG: 8-byte signature, then a stream of length(4)+type(4)+data+crc(4) chunks.
+  let pos = 8;
+  while (pos + 8 <= buf.byteLength) {
+    const len = dv.getUint32(pos, false);
+    const type = readAscii(dv, pos + 4, 4);
+    const dataStart = pos + 8;
+    if (type === 'IHDR' && dataStart + 8 <= buf.byteLength) {
+      out.width = dv.getUint32(dataStart, false);
+      out.height = dv.getUint32(dataStart + 4, false);
+    } else if (type === 'eXIf') {
+      // PNG's eXIf chunk holds a raw TIFF blob directly — no "Exif\0\0" prefix.
+      out.hasExif = true;
+      const tiff = parseTIFF(dv, dataStart);
+      if (tiff) Object.assign(out, tiff);
+    } else if (type === 'IDAT' || type === 'IEND') {
+      break; // metadata chunks are always before image data
+    }
+    pos = dataStart + len + 4; // skip data + CRC
+  }
+  return out;
+}
+
+function isVideoFile(file) {
+  return file.type.startsWith('video/') || /\.(mov|mp4|m4v)$/i.test(file.name);
+}
+
+function classifyVideo(file) {
+  const isScreenRecording = /^RPReplay_Final/i.test(file.name);
+  return {
+    make: null,
+    model: isScreenRecording ? 'Screen Recording' : 'Video (other)',
+    orientation: null, dateTimeOriginal: null, dateTime: null, width: null, height: null,
+    hasExif: false, format: 'video', fileName: file.name
+  };
+}
+
 function parseImageMetadata(buf, fileName) {
   const format = detectFormat(buf);
   let meta;
   if (format === 'jpeg') meta = parseJPEG(buf);
   else if (format === 'heic') meta = parseHEIC(buf);
+  else if (format === 'png') meta = parsePNG(buf);
   else meta = { make:null, model:null, orientation:null, dateTimeOriginal:null, dateTime:null, width:null, height:null, hasExif:false };
   meta.format = format;
   meta.fileName = fileName || null;
+  // A PNG with no camera tag is, by iOS default behaviour, a screenshot
+  // (or a Markup-annotated export of one) — real cameras essentially
+  // never produce PNG. If a PNG genuinely carries a Make/Model (rare —
+  // e.g. a scanner), that real value still wins below.
+  if (format === 'png' && !meta.model) meta.model = 'Screenshot';
   return meta;
 }
 
@@ -798,6 +865,7 @@ const progressText = document.getElementById('progressText');
 
 const summarySection = document.getElementById('summarySection');
 const chipRow = document.getElementById('chipRow');
+const summaryNote = document.getElementById('summaryNote');
 
 const resultsSection = document.getElementById('resultsSection');
 const resultsBody = document.getElementById('resultsBody');
@@ -841,7 +909,9 @@ fileInput.addEventListener('change', (e) => {
   });
 });
 dropZone.addEventListener('drop', (e) => {
-  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+  const files = Array.from(e.dataTransfer.files || []).filter(f =>
+    f.type.startsWith('image/') || f.type.startsWith('video/') || /\.(heic|heif|mov|mp4|m4v)$/i.test(f.name)
+  );
   if (files.length) setSelectedFiles(files);
 });
 
@@ -879,7 +949,7 @@ async function runReport() {
 
   let processed = 0;
   let matched = 0;
-  let noExifCount = 0;
+  let noExifCount = 0; // hasExif === false: file has no EXIF block whatsoever
   let unreadableCount = 0;
 
   for (const file of selectedFiles) {
@@ -890,19 +960,24 @@ async function runReport() {
     if (processed % 5 === 0) await new Promise(r => setTimeout(r, 0));
 
     let meta;
-    try {
-      const buf = await file.arrayBuffer();
-      meta = parseImageMetadata(buf, file.name);
-    } catch (err) {
-      issues.push({ fileName: file.name, reason: 'Could not be read (' + err.message + ')' });
-      unreadableCount++;
-      continue;
-    }
-
-    if (meta.format === 'unknown') {
-      issues.push({ fileName: file.name, reason: 'Unrecognised file format' });
-      unreadableCount++;
-      continue;
+    if (isVideoFile(file)) {
+      // Classified by filename/MIME only — bytes are never read, so this
+      // is instant even for large screen recordings.
+      meta = classifyVideo(file);
+    } else {
+      try {
+        const buf = await file.arrayBuffer();
+        meta = parseImageMetadata(buf, file.name);
+      } catch (err) {
+        issues.push({ fileName: file.name, reason: 'Could not be read (' + err.message + ')' });
+        unreadableCount++;
+        continue;
+      }
+      if (meta.format === 'unknown') {
+        issues.push({ fileName: file.name, reason: 'Unrecognised file format' });
+        unreadableCount++;
+        continue;
+      }
     }
 
     // Resolve a usable date + source
@@ -953,7 +1028,13 @@ async function runReport() {
     totalMatched: matched
   };
 
-  renderSummary({ total, matched, noExifCount, unreadableCount });
+  // "(No Camera Model)" in the table below is the union of these two —
+  // files with zero EXIF at all, plus files that have EXIF (dimensions,
+  // sometimes a date) but no Make/Model tag, e.g. screenshots.
+  const noModelTotal = PHOTO_RECORDS.filter(r => !r.model).length;
+  const noModelButHasExif = Math.max(0, noModelTotal - noExifCount);
+
+  renderSummary({ total, matched, noExifCount, noModelButHasExif, unreadableCount });
   computeAndRenderResults();
   renderIssues();
 
@@ -963,12 +1044,13 @@ async function runReport() {
   setTimeout(() => progressSection.classList.add('hidden'), 600);
 }
 
-function renderSummary({ total, matched, noExifCount, unreadableCount }) {
+function renderSummary({ total, matched, noExifCount, noModelButHasExif, unreadableCount }) {
   summarySection.classList.remove('hidden');
   const chips = [
     { n: total, l: 'Photos selected' },
     { n: matched, l: (dateFrom.value || dateTo.value) ? 'In date range' : 'Processed' },
-    { n: noExifCount, l: 'No camera data', cls: noExifCount ? 'warn' : '' },
+    { n: noExifCount, l: 'No EXIF at all', cls: noExifCount ? 'warn' : '' },
+    { n: noModelButHasExif, l: 'EXIF, no camera tag', cls: noModelButHasExif ? 'warn' : '' },
     { n: unreadableCount, l: 'Unreadable', cls: unreadableCount ? 'bad' : '' },
   ];
   chipRow.innerHTML = chips.map(c => `
@@ -977,6 +1059,10 @@ function renderSummary({ total, matched, noExifCount, unreadableCount }) {
       <div class="l">${c.l}</div>
     </div>
   `).join('');
+  const noModelTotal = noExifCount + noModelButHasExif;
+  summaryNote.textContent = noModelTotal
+    ? `${noModelTotal} photo${noModelTotal === 1 ? '' : 's'} land in "(No Camera Model)" below (excludes Screenshots/Screen Recordings, which get their own row) — ${noExifCount} with no EXIF at all, plus ${noModelButHasExif} that carry EXIF but no camera tag.`
+    : '';
 }
 
 function computeAndRenderResults() {
@@ -1103,6 +1189,6 @@ downloadCsvBtn.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 </script>
-<!-- BUILD v1 (ome-camera-model-report-v01.html) — 2026-08-04 17:32 AEST -->
+<!-- BUILD v3 (ome-camera-model-report-v03.html) — 2026-08-05 11:24 AEST -->
 </body>
 </html>
