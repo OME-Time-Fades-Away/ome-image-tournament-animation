@@ -97,7 +97,7 @@
     <header>
         <div class="title">
             <h1>CAMERA MODEL METADATA ANALYZER</h1>
-            <span>EXIF Extraction, Summary Totals, Date Filtering & Model Listings</span>
+            <span>EXIF Extraction, Screenshots / Screen Recordings Categorization & Summary Engine</span>
         </div>
         <div class="stats">
             <div class="stat-card">Parsed: <span id="s-total" style="color:var(--accent)">0</span></div>
@@ -129,10 +129,10 @@
     <div id="main-container">
         <div id="drop-zone" onclick="document.getElementById('f-in').click()">
             <p style="color: var(--text-muted); font-size: 14px;">
-                Drag & Drop photos here or click to open file picker.
+                Drag & Drop photos/media here or click to open file picker.
             </p>
-            <button class="picker-btn">Select Photo Batch</button>
-            <input type="file" id="f-in" accept="image/*" multiple style="display:none">
+            <button class="picker-btn">Select Media Batch</button>
+            <input type="file" id="f-in" accept="image/*,video/*" multiple style="display:none">
         </div>
 
         <div id="output-container"></div>
@@ -155,7 +155,7 @@
         ['dragenter', 'dragover'].forEach(() => dropZone.classList.add('dragover'));
         ['dragleave', 'drop'].forEach(() => dropZone.classList.remove('dragover'));
         dropZone.addEventListener('drop', (e) => {
-            const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
             if (dropped.length) processFiles(dropped);
         });
 
@@ -167,7 +167,7 @@
 
         async function processFiles(files) {
             if (!files.length) return;
-            log(`Starting EXIF extraction for ${files.length} photo(s)...`, '#007aff');
+            log(`Starting EXIF & Category extraction for ${files.length} item(s)...`, '#007aff');
             rawPhotoData = [];
 
             let count = 0;
@@ -177,28 +177,45 @@
                 let captureDate = file.lastModified ? new Date(file.lastModified) : new Date();
                 let width = 0, height = 0;
 
-                try {
-                    // Extract EXIF data using exifr library
-                    const exif = await exifr.parse(file, ['Make', 'Model', 'DateTimeOriginal', 'ExifImageWidth', 'ExifImageHeight']);
-                    if (exif) {
-                        if (exif.Model) {
-                            model = exif.Make && !exif.Model.startsWith(exif.Make) 
-                                ? `${exif.Make} ${exif.Model}` 
-                                : exif.Model;
+                const lowerName = file.name.toLowerCase();
+
+                // 1. Explicit Screen Recording Detection
+                if (lowerName.includes('screenrecording') || lowerName.includes('screen recording') || lowerName.includes('screen_recording') || file.type.startsWith('video/')) {
+                    model = 'Screen Recording';
+                }
+                // 2. Explicit Screenshot Filename Detection
+                else if (lowerName.includes('screenshot') || lowerName.includes('screen shot') || lowerName.includes('screen_shot')) {
+                    model = 'Screenshot';
+                }
+                // 3. Camera EXIF Extraction
+                else {
+                    try {
+                        const exif = await exifr.parse(file, ['Make', 'Model', 'DateTimeOriginal', 'ExifImageWidth', 'ExifImageHeight']);
+                        if (exif) {
+                            if (exif.Model) {
+                                model = exif.Make && !exif.Model.startsWith(exif.Make) 
+                                    ? `${exif.Make} ${exif.Model}` 
+                                    : exif.Model;
+                            }
+                            if (exif.DateTimeOriginal) {
+                                captureDate = new Date(exif.DateTimeOriginal);
+                            }
+                            width = exif.ExifImageWidth || 0;
+                            height = exif.ExifImageHeight || 0;
                         }
-                        if (exif.DateTimeOriginal) {
-                            captureDate = new Date(exif.DateTimeOriginal);
-                        }
-                        width = exif.ExifImageWidth || 0;
-                        height = exif.ExifImageHeight || 0;
+                    } catch (err) {
+                        log(`Warning: Failed to parse EXIF for ${file.name}`, '#ff9500');
                     }
-                } catch (err) {
-                    log(`Warning: Failed to parse EXIF for ${file.name}`, '#ff9500');
+
+                    // Fallback: PNG files without Camera Model EXIF are classified as Screenshots
+                    if (model === 'Unknown Camera' && (file.type === 'image/png' || lowerName.endsWith('.png'))) {
+                        model = 'Screenshot';
+                    }
                 }
 
-                // Fallback to image element for dimensions if EXIF dimensions were absent
+                // Retrieve media dimensions if absent from EXIF
                 if (!width || !height) {
-                    const dims = await getImageDimensions(file);
+                    const dims = await getMediaDimensions(file);
                     width = dims.width;
                     height = dims.height;
                 }
@@ -216,28 +233,42 @@
                 });
 
                 if (count % 10 === 0 || count === files.length) {
-                    log(`Processed ${count}/${files.length} files...`);
+                    log(`Processed ${count}/${files.length} items...`);
                 }
             }
 
-            log(`Parsing complete! Total: ${rawPhotoData.length} files processed.`, '#34c759');
+            log(`Parsing complete! Total: ${rawPhotoData.length} items processed.`, '#34c759');
             document.getElementById('s-total').innerText = rawPhotoData.length;
             applyFilters();
         }
 
-        function getImageDimensions(file) {
+        function getMediaDimensions(file) {
             return new Promise((resolve) => {
-                const img = new Image();
-                const url = URL.createObjectURL(file);
-                img.onload = () => {
-                    URL.revokeObjectURL(url);
-                    resolve({ width: img.naturalWidth, height: img.naturalHeight });
-                };
-                img.onerror = () => {
-                    URL.revokeObjectURL(url);
-                    resolve({ width: 0, height: 0 });
-                };
-                img.src = url;
+                if (file.type.startsWith('video/') || file.name.match(/\.(mp4|mov|m4v|webm)$/i)) {
+                    const video = document.createElement('video');
+                    const url = URL.createObjectURL(file);
+                    video.onloadedmetadata = () => {
+                        URL.revokeObjectURL(url);
+                        resolve({ width: video.videoWidth, height: video.videoHeight });
+                    };
+                    video.onerror = () => {
+                        URL.revokeObjectURL(url);
+                        resolve({ width: 0, height: 0 });
+                    };
+                    video.src = url;
+                } else {
+                    const img = new Image();
+                    const url = URL.createObjectURL(file);
+                    img.onload = () => {
+                        URL.revokeObjectURL(url);
+                        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+                    };
+                    img.onerror = () => {
+                        URL.revokeObjectURL(url);
+                        resolve({ width: 0, height: 0 });
+                    };
+                    img.src = url;
+                }
             });
         }
 
@@ -260,7 +291,7 @@
 
             document.getElementById('s-filtered').innerText = filtered.length;
 
-            // 2. Group by Camera Model
+            // 2. Group by Category / Camera Model
             const grouped = {};
             filtered.forEach(item => {
                 if (!grouped[item.model]) {
@@ -269,7 +300,7 @@
                 grouped[item.model].push(item);
             });
 
-            // 3. Sort Camera Models
+            // 3. Sort Models / Categories
             let sortedModels = Object.keys(grouped);
             document.getElementById('s-models').innerText = sortedModels.length;
 
@@ -289,29 +320,35 @@
             container.innerHTML = '';
 
             if (sortedModelKeys.length === 0) {
-                container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">No photos match the selected filter criteria.</div>`;
+                container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">No items match the selected filter criteria.</div>`;
                 return;
             }
 
-            // ── 1. CAMERA MODEL OVERVIEW SUMMARY TABLE ───────────────────
+            // ── 1. SUMMARY OVERVIEW TABLE ───────────────────
             const summaryCard = document.createElement('div');
             summaryCard.className = 'summary-card';
             summaryCard.style.borderLeft = '4px solid var(--accent)';
 
             let summaryRowsHtml = '';
             sortedModelKeys.forEach(modelKey => {
-                const photos = groupedData[modelKey];
-                const count = photos.length;
+                const items = groupedData[modelKey];
+                const count = items.length;
                 const sharePct = totalFilteredCount > 0 ? ((count / totalFilteredCount) * 100).toFixed(1) : 0;
 
-                const timestamps = photos.map(p => p.date.getTime()).filter(t => !isNaN(t));
+                const timestamps = items.map(p => p.date.getTime()).filter(t => !isNaN(t));
                 const minDate = timestamps.length ? new Date(Math.min(...timestamps)).toLocaleDateString() : 'N/A';
                 const maxDate = timestamps.length ? new Date(Math.max(...timestamps)).toLocaleDateString() : 'N/A';
                 const dateRangeStr = minDate === maxDate ? minDate : `${minDate} - ${maxDate}`;
 
+                // Highlight non-camera groups in warning/accent colors
+                let labelStyle = 'font-weight:600; color:var(--text);';
+                if (modelKey === 'Screenshot' || modelKey === 'Screen Recording') {
+                    labelStyle = 'font-weight:600; color:var(--warning);';
+                }
+
                 summaryRowsHtml += `
                     <tr>
-                        <td style="font-weight:600; color:var(--text);">${modelKey}</td>
+                        <td style="${labelStyle}">${modelKey}</td>
                         <td style="color:var(--accent); font-weight:700;">${count}</td>
                         <td>${sharePct}%</td>
                         <td>${dateRangeStr}</td>
@@ -321,14 +358,14 @@
 
             summaryCard.innerHTML = `
                 <div class="summary-header">
-                    <h2>Camera Model Summary Overview</h2>
-                    <div class="summary-badge" style="color: var(--accent); border-color: var(--accent);">${sortedModelKeys.length} Model(s) Total</div>
+                    <h2>Camera Model & Category Overview</h2>
+                    <div class="summary-badge" style="color: var(--accent); border-color: var(--accent);">${sortedModelKeys.length} Group(s) Total</div>
                 </div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Camera Model</th>
-                            <th>Photo Count</th>
+                            <th>Camera Model / Type</th>
+                            <th>Count</th>
                             <th>Share of Batch</th>
                             <th>Date Range</th>
                         </tr>
@@ -343,14 +380,14 @@
             // ── 2. SECTION DIVIDER ─────────────────────────────────────────
             const sectionTitle = document.createElement('h3');
             sectionTitle.style.cssText = 'font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin: 24px 0 12px 4px;';
-            sectionTitle.innerText = 'Detailed Photo Listings by Model';
+            sectionTitle.innerText = 'Detailed Items by Category / Camera Model';
             container.appendChild(sectionTitle);
 
-            // ── 3. DETAILED LISTING CARDS PER CAMERA MODEL ────────────────
+            // ── 3. DETAILED LISTING CARDS PER GROUP ────────────────
             sortedModelKeys.forEach(modelKey => {
-                const photos = groupedData[modelKey];
+                const items = groupedData[modelKey];
                 
-                const timestamps = photos.map(p => p.date.getTime()).filter(t => !isNaN(t));
+                const timestamps = items.map(p => p.date.getTime()).filter(t => !isNaN(t));
                 const minDate = timestamps.length ? new Date(Math.min(...timestamps)).toLocaleDateString() : 'N/A';
                 const maxDate = timestamps.length ? new Date(Math.max(...timestamps)).toLocaleDateString() : 'N/A';
                 const dateRangeStr = minDate === maxDate ? minDate : `${minDate} - ${maxDate}`;
@@ -358,7 +395,7 @@
                 const card = document.createElement('div');
                 card.className = 'summary-card';
 
-                let rowsHtml = photos.map(p => `
+                let rowsHtml = items.map(p => `
                     <tr>
                         <td>${p.name}</td>
                         <td>${p.date.toLocaleString()}</td>
@@ -370,16 +407,16 @@
                 card.innerHTML = `
                     <div class="summary-header">
                         <div>
-                            <h2>${modelKey}</h2>
+                            <h2 style="${(modelKey === 'Screenshot' || modelKey === 'Screen Recording') ? 'color: var(--warning);' : ''}">${modelKey}</h2>
                             <span style="font-size:12px; color:var(--text-muted);">Date Range: ${dateRangeStr}</span>
                         </div>
-                        <div class="summary-badge">${photos.length} Photo(s)</div>
+                        <div class="summary-badge">${items.length} Item(s)</div>
                     </div>
                     <table>
                         <thead>
                             <tr>
                                 <th>File Name</th>
-                                <th>Capture Date</th>
+                                <th>Date</th>
                                 <th>Dimensions (WxH)</th>
                                 <th>Aspect Ratio</th>
                             </tr>
