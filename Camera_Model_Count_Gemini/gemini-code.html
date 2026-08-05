@@ -62,14 +62,15 @@
 
         #drop-zone {
             border: 2px dashed var(--border); border-radius: 12px; padding: 26px; text-align: center;
-            background: var(--bg-surface); cursor: pointer; transition: all 0.2s ease;
+            background: var(--bg-surface); transition: all 0.2s ease;
         }
-        #drop-zone:hover, #drop-zone.dragover { border-color: var(--accent); background: var(--bg-card); }
+        #drop-zone.dragover { border-color: var(--accent); background: var(--bg-card); }
         
         .picker-btn {
-            background: var(--accent); color: #fff; font-weight: 600; padding: 10px 20px;
-            border-radius: 8px; border: none; font-size: 14px; cursor: pointer; margin-top: 10px;
+            background: var(--accent); color: #fff; font-weight: 600; padding: 10px 18px;
+            border-radius: 8px; border: none; font-size: 13px; cursor: pointer; transition: opacity 0.2s;
         }
+        .picker-btn:hover { opacity: 0.85; }
 
         /* Summary Cards & Collapsibles */
         .summary-card {
@@ -127,8 +128,8 @@
         <div class="title">
             <h1>CAMERA MODEL METADATA ANALYZER</h1>
             <div>
-                <span class="version-tag">v1.3.0</span>
-                <span style="font-size:11px; color:var(--text-muted); margin-left:6px;">Build: 05-Aug-2026 11:54 AM AEST (Sydney)</span>
+                <span class="version-tag">v1.3.2</span>
+                <span style="font-size:11px; color:var(--text-muted); margin-left:6px;">Build: 05-Aug-2026 12:35 PM AEST (Sydney)</span>
             </div>
             <span class="subtitle">EXIF Extraction, Video/Edited Photo Handling, Grand Totals & Collapsible Listings</span>
         </div>
@@ -160,12 +161,18 @@
     </div>
 
     <div id="main-container">
-        <div id="drop-zone" onclick="document.getElementById('f-in').click()">
-            <p style="color: var(--text-muted); font-size: 14px;">
-                Drag & Drop photos/media or whole folders here, or click to open picker.
+        <div id="drop-zone">
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 12px;">
+                Drag & Drop media files or whole folders here, or use a selection button:
             </p>
-            <button class="picker-btn">Select Media Batch</button>
-            <input type="file" id="f-in" accept="image/*,video/*" webkitdirectory directory multiple style="display:none">
+            <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                <button class="picker-btn" onclick="document.getElementById('f-in-files').click()">Select Files</button>
+                <button class="picker-btn" style="background: var(--bg-card); border: 1px solid var(--border); color: var(--text);" onclick="document.getElementById('f-in-folder').click()">Select Folder</button>
+            </div>
+            <!-- Individual/Multiple File Input -->
+            <input type="file" id="f-in-files" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple style="display:none">
+            <!-- Directory/Folder Input (without accept attribute to avoid Explorer conflicts) -->
+            <input type="file" id="f-in-folder" webkitdirectory directory multiple style="display:none">
         </div>
 
         <div id="output-container"></div>
@@ -178,18 +185,21 @@
         let allDetailsOpen = true;
 
         const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('f-in');
+        const fileInputFiles = document.getElementById('f-in-files');
+        const fileInputFolder = document.getElementById('f-in-folder');
 
-        fileInput.addEventListener('change', (e) => processFiles(Array.from(e.target.files)));
+        fileInputFiles.addEventListener('change', (e) => processFiles(Array.from(e.target.files)));
+        fileInputFolder.addEventListener('change', (e) => processFiles(Array.from(e.target.files)));
 
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
             dropZone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); });
         });
         ['dragenter', 'dragover'].forEach(() => dropZone.classList.add('dragover'));
         ['dragleave', 'drop'].forEach(() => dropZone.classList.remove('dragover'));
+        
         dropZone.addEventListener('drop', async (e) => {
             const items = Array.from(e.dataTransfer.items);
-            log(`Scanning dropped files/folders...`, '#007aff');
+            log(`Scanning dropped items...`, '#007aff');
             
             const fileEntries = [];
             for (const item of items) {
@@ -207,7 +217,7 @@
             if (entry.isFile) {
                 return new Promise((resolve) => {
                     entry.file((file) => {
-                        if (file.type.startsWith('image/') || file.type.startsWith('video/') || file.name.match(/\.(heic|jpg|jpeg|png|mov|mp4|m4v)$/i)) {
+                        if (file.type.startsWith('image/') || file.type.startsWith('video/') || file.name.match(/\.(heic|heif|jpg|jpeg|png|mov|mp4|m4v)$/i)) {
                             fileList.push(file);
                         }
                         resolve();
