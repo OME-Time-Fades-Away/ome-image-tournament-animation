@@ -31,7 +31,12 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         }
         .title h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
-        .title span { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
+        .version-tag {
+            font-size: 11px; font-weight: 600; color: var(--accent);
+            background: rgba(0, 122, 255, 0.1); border: 1px solid var(--accent);
+            padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;
+        }
+        .title span.subtitle { font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px; }
         .stats { display: flex; gap: 12px; }
         .stat-card {
             background: var(--bg-card); padding: 6px 12px; border-radius: 8px;
@@ -121,12 +126,16 @@
     <header>
         <div class="title">
             <h1>CAMERA MODEL METADATA ANALYZER</h1>
-            <span>EXIF Extraction, Grand Totals, Unparseable Tracking & Collapsible Listings</span>
+            <div>
+                <span class="version-tag">v1.3.0</span>
+                <span style="font-size:11px; color:var(--text-muted); margin-left:6px;">Build: 05-Aug-2026 11:54 AM AEST (Sydney)</span>
+            </div>
+            <span class="subtitle">EXIF Extraction, Video/Edited Photo Handling, Grand Totals & Collapsible Listings</span>
         </div>
         <div class="stats">
             <div class="stat-card">Parsed: <span id="s-total" style="color:var(--accent)">0</span></div>
             <div class="stat-card">Filtered: <span id="s-filtered" style="color:var(--success)">0</span></div>
-            <div class="stat-card">Failed/Unread: <span id="s-failed" style="color:var(--danger)">0</span></div>
+            <div class="stat-card">Errors / Unread: <span id="s-failed" style="color:var(--danger)">0</span></div>
         </div>
     </header>
 
@@ -153,10 +162,10 @@
     <div id="main-container">
         <div id="drop-zone" onclick="document.getElementById('f-in').click()">
             <p style="color: var(--text-muted); font-size: 14px;">
-                Drag & Drop photos/media here or click to open file picker.
+                Drag & Drop photos/media or whole folders here, or click to open picker.
             </p>
             <button class="picker-btn">Select Media Batch</button>
-            <input type="file" id="f-in" accept="image/*,video/*" multiple style="display:none">
+            <input type="file" id="f-in" accept="image/*,video/*" webkitdirectory directory multiple style="display:none">
         </div>
 
         <div id="output-container"></div>
@@ -165,13 +174,12 @@
     <div id="logger"></div>
 
     <script>
-        let rawPhotoData = []; // Holds all parsed metadata objects
+        let rawPhotoData = [];
         let allDetailsOpen = true;
 
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('f-in');
 
-        // File Selection Handlers
         fileInput.addEventListener('change', (e) => processFiles(Array.from(e.target.files)));
 
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
@@ -179,10 +187,40 @@
         });
         ['dragenter', 'dragover'].forEach(() => dropZone.classList.add('dragover'));
         ['dragleave', 'drop'].forEach(() => dropZone.classList.remove('dragover'));
-        dropZone.addEventListener('drop', (e) => {
-            const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
-            if (dropped.length) processFiles(dropped);
+        dropZone.addEventListener('drop', async (e) => {
+            const items = Array.from(e.dataTransfer.items);
+            log(`Scanning dropped files/folders...`, '#007aff');
+            
+            const fileEntries = [];
+            for (const item of items) {
+                if (item.webkitGetAsEntry) {
+                    const entry = item.webkitGetAsEntry();
+                    if (entry) await scanEntry(entry, fileEntries);
+                } else if (item.kind === 'file') {
+                    fileEntries.push(item.getAsFile());
+                }
+            }
+            processFiles(fileEntries);
         });
+
+        async function scanEntry(entry, fileList) {
+            if (entry.isFile) {
+                return new Promise((resolve) => {
+                    entry.file((file) => {
+                        if (file.type.startsWith('image/') || file.type.startsWith('video/') || file.name.match(/\.(heic|jpg|jpeg|png|mov|mp4|m4v)$/i)) {
+                            fileList.push(file);
+                        }
+                        resolve();
+                    });
+                });
+            } else if (entry.isDirectory) {
+                const dirReader = entry.createReader();
+                const entries = await new Promise((resolve) => dirReader.readEntries(resolve));
+                for (const childEntry of entries) {
+                    await scanEntry(childEntry, fileList);
+                }
+            }
+        }
 
         function log(m, color = '') {
             const p = document.getElementById('logger');
@@ -192,7 +230,7 @@
 
         async function processFiles(files) {
             if (!files.length) return;
-            log(`Starting EXIF & Category extraction for ${files.length} item(s)...`, '#007aff');
+            log(`Starting extraction for ${files.length} item(s)...`, '#007aff');
             rawPhotoData = [];
             let unreadCount = 0;
 
@@ -205,16 +243,21 @@
                 let isUnparseable = false;
 
                 const lowerName = file.name.toLowerCase();
+                const isVideo = file.type.startsWith('video/') || lowerName.endsWith('.mp4') || lowerName.endsWith('.mov') || lowerName.endsWith('.m4v');
 
                 // 1. Explicit Screen Recording Detection
-                if (lowerName.includes('screenrecording') || lowerName.includes('screen recording') || lowerName.includes('screen_recording') || file.type.startsWith('video/')) {
+                if (lowerName.includes('screenrecording') || lowerName.includes('screen recording') || lowerName.includes('screen_recording')) {
                     model = 'Screen Recording';
                 }
                 // 2. Explicit Screenshot Filename Detection
                 else if (lowerName.includes('screenshot') || lowerName.includes('screen shot') || lowerName.includes('screen_shot')) {
                     model = 'Screenshot';
                 }
-                // 3. Camera EXIF Extraction
+                // 3. Videos (Skip EXIF parsing to prevent JS exceptions)
+                else if (isVideo) {
+                    model = 'Video File';
+                }
+                // 4. Photos EXIF Extraction
                 else {
                     try {
                         const exif = await exifr.parse(file, ['Make', 'Model', 'DateTimeOriginal', 'ExifImageWidth', 'ExifImageHeight']);
@@ -231,13 +274,16 @@
                             height = exif.ExifImageHeight || 0;
                         }
                     } catch (err) {
-                        log(`Error: Unparseable EXIF for ${file.name}`, '#ff3b30');
-                        isUnparseable = true;
+                        log(`Notice: EXIF absent or unreadable for ${file.name}`, '#ff9500');
                     }
 
-                    // Fallback: PNG files without Camera Model EXIF are classified as Screenshots
-                    if (!isUnparseable && model === 'Unknown Camera' && (file.type === 'image/png' || lowerName.endsWith('.png'))) {
-                        model = 'Screenshot';
+                    // Fallback heuristics for photos missing camera EXIF
+                    if (model === 'Unknown Camera') {
+                        if (lowerName.includes('(edited)')) {
+                            model = 'Edited Photo (Stripped EXIF)';
+                        } else if (file.type === 'image/png' || lowerName.endsWith('.png')) {
+                            model = 'Screenshot';
+                        }
                     }
                 }
 
@@ -246,17 +292,16 @@
                     const dims = await getMediaDimensions(file);
                     width = dims.width;
                     height = dims.height;
-                    if (width === 0 && height === 0) {
-                        isUnparseable = true;
-                    }
                 }
 
-                if (isUnparseable) {
+                // Mark unparseable only if dimensions are missing AND no model could be assigned
+                if (width === 0 && height === 0 && model === 'Unknown Camera') {
                     model = 'Unparseable / Read Error';
+                    isUnparseable = true;
                     unreadCount++;
                 }
 
-                const aspectRatio = height > 0 ? (width / height).toFixed(3) : 0;
+                const aspectRatio = height > 0 ? (width / height).toFixed(3) : 'N/A';
 
                 rawPhotoData.push({
                     name: file.name,
@@ -265,7 +310,7 @@
                     date: captureDate,
                     width: width,
                     height: height,
-                    aspectRatio: parseFloat(aspectRatio),
+                    aspectRatio: aspectRatio,
                     isUnparseable: isUnparseable
                 });
 
@@ -274,7 +319,7 @@
                 }
             }
 
-            log(`Parsing complete! Total: ${rawPhotoData.length} processed (${unreadCount} unparseable).`, '#34c759');
+            log(`Parsing complete! Total: ${rawPhotoData.length} items processed (${unreadCount} unparseable).`, '#34c759');
             document.getElementById('s-total').innerText = rawPhotoData.length;
             document.getElementById('s-failed').innerText = unreadCount;
             applyFilters();
@@ -386,7 +431,7 @@
                 const dateRangeStr = minDate === maxDate ? minDate : `${minDate} - ${maxDate}`;
 
                 let labelStyle = 'font-weight:600; color:var(--text);';
-                if (modelKey === 'Screenshot' || modelKey === 'Screen Recording') {
+                if (modelKey.includes('Screenshot') || modelKey.includes('Screen Recording') || modelKey.includes('Edited Photo')) {
                     labelStyle = 'font-weight:600; color:var(--warning);';
                 } else if (modelKey === 'Unparseable / Read Error') {
                     labelStyle = 'font-weight:600; color:var(--danger);';
@@ -465,7 +510,7 @@
                 `).join('');
 
                 let headerColor = '';
-                if (modelKey === 'Screenshot' || modelKey === 'Screen Recording') headerColor = 'color: var(--warning);';
+                if (modelKey.includes('Screenshot') || modelKey.includes('Screen Recording') || modelKey.includes('Edited Photo')) headerColor = 'color: var(--warning);';
                 if (modelKey === 'Unparseable / Read Error') headerColor = 'color: var(--danger);';
 
                 details.innerHTML = `
